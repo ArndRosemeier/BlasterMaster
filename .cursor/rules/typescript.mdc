@@ -1,0 +1,12 @@
+---
+description: TypeScript standards
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# TypeScript
+
+- Keep `strict` and `noUncheckedIndexedAccess` happy.
+- Ban `any`; prefer `unknown` then narrow.
+- Use Zod at env / external boundaries (`src/env.ts` pattern).
+- Prefer named exports for shared modules; keep Phaser scenes as classes extending `Phaser.Scene`.

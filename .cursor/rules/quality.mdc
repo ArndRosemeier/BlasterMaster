@@ -1,0 +1,12 @@
+---
+description: Quality bars for BlasterMaster
+alwaysApply: true
+---
+
+# Quality
+
+- Prefer strict, explicit types; avoid `any` and unsafe casts.
+- Stay DRY: search existing `src/lib` and scenes before inventing helpers.
+- When you change or add a recurring pattern, update `docs/HOW_WE_DO_IT.md` in the same change.
+- Done means `npm run typecheck`, `npm run lint`, and `npm run test` are green.
+
