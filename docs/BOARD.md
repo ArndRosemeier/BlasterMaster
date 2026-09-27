@@ -146,6 +146,18 @@ IN-FLIGHT | row=7 | writer=session-57d15872-e49d-4c5a-92cf-640627f99728
   `eslint.config.js` or non-test source. Pins: an unchanged copy reds; a RENAMED copy reds; a stale
   inventory entry reds; the existing 67 tests / 12 files stay green. Ledger row 10.
 
+QUEUE | row=8 | RE-CHECK THE CAMPAIGN STAR THRESHOLDS after the row=3 AI judgement change.
+  `src/game/ops/campaign.ts` awards stars from `swiftMoves`/`cascadeWaves` per mission (10/2 …
+  32/4), and those numbers were tuned against the OLD `evaluate.ts` heuristic. The new one adds
+  `pressure` (count/threshold) at weight 40/48 and `reach` at 1/2, so the AI's play has changed
+  by construction — but WHICH WAY, and by how much, is UNPROVEN: no play-test has measured the
+  new AI's strength, and both the difficulty tiers (`cadet`/`operator`/`director` are lookahead
+  and noise settings, untouched) and the star gates may now be mis-calibrated. This is a
+  measurement slice, not a tuning slice: play the campaign missions against the new AI, record
+  moves-to-win and cascade counts, and compare with the thresholds before changing any number.
+  Reserved; NOT ordered. It is the honest cost of letting the owner's rule changes flow into the
+  AI automatically — the AI got the new rule for free, and its calibration debt came with it.
+
 QUEUE | row=4 | DEEP FIELD ships in SKIRMISH only. A campaign mission for it needs a tenth
   mission and the ops grid has the same 3x3 capacity limit. Reserved, NOT ordered.
 
