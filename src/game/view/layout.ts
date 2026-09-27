@@ -134,6 +134,9 @@ export function reachPips(cell: CellState, size: number): readonly ReachPip[] {
   return pips;
 }
 
+/** How many token orbs a cell can show before it falls back to a number. */
+export const ORB_SLOTS = 4;
+
 export function orbOffsets(count: number, radius: number): readonly { x: number; y: number }[] {
   if (count <= 0) {
     return [];
@@ -154,7 +157,7 @@ export function orbOffsets(count: number, radius: number): readonly { x: number;
       { x: radius, y: radius * 0.52 },
     ];
   }
-  const shown = Math.min(count, 4);
+  const shown = Math.min(count, ORB_SLOTS);
   const corners = [
     { x: -radius, y: -radius },
     { x: radius, y: -radius },

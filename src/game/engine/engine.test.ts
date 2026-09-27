@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { mulberry32 } from '../../lib/rng';
 import { AIRLOCK, DEEP_FIELD, cellsFromRows, mapFromRows } from '../maps';
 import {
   blastTargets,
@@ -539,16 +540,6 @@ describe('deep cells', () => {
 });
 
 describe('random legal play terminates each cascade', () => {
-  function mulberry32(seed: number): () => number {
-    let t = seed >>> 0;
-    return () => {
-      t += 0x6d2b79f5;
-      let r = Math.imul(t ^ (t >>> 15), 1 | t);
-      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
   /** Plays random legal turns, asserting the cascade invariants after each one. */
   function playRandomGames(arena: MapDefinition, seed: number, games: number): void {
     const rng = mulberry32(seed);

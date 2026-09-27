@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
-import { boardCells, getCell, isNearCritical, mapBounds } from '../../game/engine/board';
+import { boardCells, getCell, isNearCritical, mapBounds, threshold } from '../../game/engine/board';
 import { parseCellId } from '../../game/engine/ids';
 import type { Board, CellId, CellState, PlayerId } from '../../game/engine/types';
 import { theme } from '../../game/theme';
 import {
   cellCenter,
   layoutBoard,
+  ORB_SLOTS,
   orbOffsets,
   reachPips,
   type BoardLayout,
@@ -34,6 +35,8 @@ type CellVisual = {
   readonly sockets: SocketVisual[];
   readonly cores: CoreVisual[];
   readonly countText: Phaser.GameObjects.Text;
+  /** Container index the pips belong at (after rim, plate and the deep cuts). */
+  readonly socketIndex: number;
   /** Direction signature of `sockets`, so a fallen plate can add a new pip. */
   socketKey: string;
 };
@@ -292,7 +295,7 @@ export class BoardView {
 
     const sockets: SocketVisual[] = [];
     const cores: CoreVisual[] = [];
-    for (let i = 0; i < 4; i += 1) {
+    for (let i = 0; i < ORB_SLOTS; i += 1) {
       const coreRoot = this.scene.add.container(0, 0);
       const glow = this.scene.add.image(0, 0, glowTexture('a'));
       glow.setBlendMode(Phaser.BlendModes.ADD);
@@ -311,6 +314,9 @@ export class BoardView {
       .setOrigin(0.5)
       .setAlpha(0);
 
+    // Rendered between the deep corner cuts and the cores; the cut count decides
+    // the index, so the two never drift apart.
+    const cuts = cell.deep ? this.createDeepCuts(size) : [];
     const visual: CellVisual = {
       id: cell.id,
       root,
@@ -319,6 +325,7 @@ export class BoardView {
       sockets,
       cores,
       countText,
+      socketIndex: 2 + cuts.length,
       socketKey: '',
     };
 
@@ -335,7 +342,6 @@ export class BoardView {
       this.onChoose(visual.id);
     });
 
-    const cuts = cell.deep ? this.createDeepCuts(size) : [];
     root.add([rim, plate, ...cuts, ...cores.map((core) => core.root), countText]);
     this.syncSockets(visual, cell);
     this.layer.add(root);
@@ -357,12 +363,10 @@ export class BoardView {
       socket.arc.destroy();
     }
     visual.sockets.length = 0;
-    // Pips render above the deep corner cuts and below the cores.
-    const insertAt = 2 + (cell.deep ? 4 : 0);
     const radius = Math.max(3, this.layout.cellSize * 0.045);
     pips.forEach((pip, index) => {
       const arc = this.scene.add.circle(pip.x, pip.y, radius, theme.colors.plateEdge, 1);
-      visual.root.addAt(arc, insertAt + index);
+      visual.root.addAt(arc, visual.socketIndex + index);
       visual.sockets.push({ arc, ox: pip.x, oy: pip.y });
     });
     visual.socketKey = key;
@@ -413,10 +417,10 @@ export class BoardView {
       core.body.setAlpha(1);
       core.glow.setAlpha(nearCritical ? 0.95 : 0.55);
     });
-    // A deep cell's pips already carry the count up to its 8-way threshold, so the
-    // number only appears beyond that (seeded boards, tests).
-    const shown = cell.deep ? 8 : 4;
-    if (cell.count > shown) {
+    // The pips carry the count up to the cell's own rule threshold, and the orbs
+    // carry it up to ORB_SLOTS; past whichever is larger, the number must be drawn.
+    const carried = Math.max(ORB_SLOTS, threshold(cell));
+    if (cell.count > carried) {
       const textAt = this.layout.cellSize * 0.32;
       visual.countText.setText(String(cell.count));
       visual.countText.setPosition(cell.deep ? 0 : textAt, cell.deep ? 0 : -textAt);
