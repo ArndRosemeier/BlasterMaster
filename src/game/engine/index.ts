@@ -1,12 +1,15 @@
 export {
   blastTargets,
   boardCells,
+  boardPlates,
   boardWalls,
   collapseWalls,
   createBoard,
   diagNeighborIds,
   getCell,
   hashBoard,
+  isArmoredPlate,
+  isCrackedPlate,
   isCritical,
   isNearCritical,
   legalMoves,
@@ -42,3 +45,4 @@ export type {
   WaveStep,
   WinCause,
 } from './types';
+export type { WallDamage } from './board';

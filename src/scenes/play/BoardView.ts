@@ -1,5 +1,14 @@
 import Phaser from 'phaser';
-import { boardCells, getCell, isNearCritical, mapBounds, threshold } from '../../game/engine/board';
+import {
+  boardCells,
+  boardPlates,
+  getCell,
+  isArmoredPlate,
+  isCrackedPlate,
+  isNearCritical,
+  mapBounds,
+  threshold,
+} from '../../game/engine/board';
 import { parseCellId } from '../../game/engine/ids';
 import type { Board, CellId, CellState, PlayerId } from '../../game/engine/types';
 import { theme } from '../../game/theme';
@@ -41,6 +50,25 @@ type CellVisual = {
   socketKey: string;
 };
 
+/**
+ * A standing plate. `base` carries the plate's state (plain / armored steel /
+ * cracked scorch) and `seam` is the fracture line: dim on an intact armored plate
+ * as the "two hits" tell, bright once it has actually cracked.
+ */
+type PlateVisual = {
+  readonly root: Phaser.GameObjects.Container;
+  readonly base: Phaser.GameObjects.Rectangle;
+  readonly seam: Phaser.GameObjects.Graphics;
+};
+
+/** How a plate is painted: its fill, stroke and how loudly the seam shows. */
+type PlateStyle = {
+  readonly fill: number;
+  readonly stroke: number;
+  readonly width: number;
+  readonly seam: number;
+};
+
 /** Deep cells keep a tighter core cluster so the corner pips stay readable. */
 function coreScale(deep: boolean): { readonly radius: number; readonly size: number } {
   return deep ? { radius: 0.14, size: 0.28 } : { radius: 0.18, size: 0.4 };
@@ -50,7 +78,7 @@ export class BoardView {
   public readonly layout: BoardLayout;
   private board: Board;
   private readonly cells = new Map<CellId, CellVisual>();
-  private readonly walls = new Map<CellId, Phaser.GameObjects.Rectangle>();
+  private readonly plates = new Map<CellId, PlateVisual>();
   private readonly layer: Phaser.GameObjects.Container;
   private readonly ghostLayer: Phaser.GameObjects.Container;
   private legal = new Set<CellId>();
@@ -76,8 +104,8 @@ export class BoardView {
     for (const cell of boardCells(board)) {
       this.cells.set(cell.id, this.createCell(cell));
     }
-    for (const wallId of board.walls) {
-      this.walls.set(wallId, this.createWall(wallId));
+    for (const plateId of boardPlates(board)) {
+      this.plates.set(plateId, this.createPlate(plateId));
     }
     this.spinEvent = scene.time.addEvent({
       delay: 16,
@@ -106,17 +134,19 @@ export class BoardView {
 
   public setBoard(board: Board): void {
     this.board = board;
-    for (const wallId of [...this.walls.keys()]) {
-      if (board.cells[wallId] !== undefined) {
-        const plate = this.walls.get(wallId);
-        plate?.destroy();
-        this.walls.delete(wallId);
+    for (const plateId of [...this.plates.keys()]) {
+      if (board.cells[plateId] !== undefined) {
+        this.plates.get(plateId)?.root.destroy();
+        this.plates.delete(plateId);
       }
     }
-    for (const wallId of board.walls) {
-      if (!this.walls.has(wallId)) {
-        this.walls.set(wallId, this.createWall(wallId));
+    for (const plateId of boardPlates(board)) {
+      const existing = this.plates.get(plateId);
+      if (existing === undefined) {
+        this.plates.set(plateId, this.createPlate(plateId));
+        continue;
       }
+      this.paintWall(plateId, existing);
     }
     for (const cell of boardCells(board)) {
       if (!this.cells.has(cell.id)) {
@@ -139,19 +169,43 @@ export class BoardView {
     }
   }
 
+  /** A plate's LAST hit: it shatters out of the layer and a cell takes its square. */
   public crackWalls(ids: readonly CellId[]): void {
     for (const id of ids) {
-      const plate = this.walls.get(id);
+      const plate = this.plates.get(id);
       if (plate === undefined) {
         continue;
       }
-      this.scene.tweens.killTweensOf(plate);
+      this.scene.tweens.killTweensOf(plate.root);
       this.scene.tweens.add({
-        targets: plate,
+        targets: plate.root,
         scaleY: 0.15,
         alpha: 0,
         duration: 160,
         ease: 'Cubic.In',
+      });
+    }
+  }
+
+  /**
+   * A plate's FIRST hit: it survives, so it flinches instead of shattering and
+   * `setBoard` repaints it scorched. This is the visual half of "damage is one per
+   * wave" — an armored plate that flinches has consumed the wave's damage.
+   */
+  public damageWalls(ids: readonly CellId[]): void {
+    for (const id of ids) {
+      const plate = this.plates.get(id);
+      if (plate === undefined) {
+        continue;
+      }
+      this.scene.tweens.killTweensOf(plate.root);
+      plate.root.setScale(1);
+      this.scene.tweens.add({
+        targets: plate.root,
+        scaleX: { from: 1.18, to: 1 },
+        scaleY: { from: 0.82, to: 1 },
+        duration: 220,
+        ease: 'Back.Out',
       });
     }
   }
@@ -210,19 +264,32 @@ export class BoardView {
     this.ghostLayer.add(leftover);
     this.ghosts.push(leftover);
     for (const wallId of preview.collapsed) {
-      const pos = this.wallCenter(wallId);
-      const crack = this.scene.add.rectangle(
-        pos.x,
-        pos.y,
-        this.layout.cellSize * 0.72,
-        this.layout.cellSize * 0.72,
-        theme.colors.warning,
-        0.28,
-      );
-      crack.setStrokeStyle(2, theme.colors.warning, 0.95);
-      this.ghostLayer.add(crack);
-      this.ghosts.push(crack);
+      const pos = this.plateCenter(wallId);
+      this.drawPlateGhost(pos.x, pos.y, true);
     }
+    for (const wallId of preview.cracked) {
+      const pos = this.plateCenter(wallId);
+      this.drawPlateGhost(pos.x, pos.y, false);
+    }
+  }
+
+  /**
+   * The hover ghost for a plate this wave touches: FILLED means the plate falls
+   * (its last hit), HOLLOW means it only cracks (an armored plate surviving).
+   */
+  private drawPlateGhost(x: number, y: number, falls: boolean): void {
+    const size = this.layout.cellSize * 0.72;
+    const ghost = this.scene.add.rectangle(
+      x,
+      y,
+      size,
+      size,
+      theme.colors.warning,
+      falls ? 0.28 : 0,
+    );
+    ghost.setStrokeStyle(2, theme.colors.warning, falls ? 0.95 : 0.7);
+    this.ghostLayer.add(ghost);
+    this.ghosts.push(ghost);
   }
 
   public clearPreview(): void {
@@ -242,10 +309,7 @@ export class BoardView {
 
   private drawShafts(board: Board): void {
     const bounds = mapBounds(board);
-    const present = new Set([
-      ...boardCells(board).map((cell) => cell.id),
-      ...board.walls,
-    ]);
+    const present = new Set([...boardCells(board).map((cell) => cell.id), ...boardPlates(board)]);
     for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
       for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
         const id = `${x},${y}` as CellId;
@@ -267,22 +331,44 @@ export class BoardView {
     }
   }
 
-  private wallCenter(id: CellId): { x: number; y: number } {
-    const existing = this.walls.get(id);
+  private plateCenter(id: CellId): { x: number; y: number } {
+    const existing = this.plates.get(id);
     if (existing !== undefined) {
-      return { x: existing.x, y: existing.y };
+      return { x: existing.root.x, y: existing.root.y };
     }
     const pos = parseCellId(id);
     return cellCenter(this.layout, pos.x, pos.y);
   }
 
-  private createWall(id: CellId): Phaser.GameObjects.Rectangle {
-    const pos = this.wallCenter(id);
+  private createPlate(id: CellId): PlateVisual {
+    const pos = this.plateCenter(id);
     const size = this.layout.cellSize * 0.86;
-    const plate = this.scene.add.rectangle(pos.x, pos.y, size, size, theme.colors.wall, 1);
-    plate.setStrokeStyle(3, theme.colors.wallEdge, 0.95);
-    this.layer.add(plate);
-    return plate;
+    const base = this.scene.add.rectangle(0, 0, size, size, theme.colors.wall, 1);
+    const seam = this.scene.add.graphics();
+    seam.lineStyle(3, theme.colors.warning, 1);
+    seam.lineBetween(-size * 0.16, size * 0.3, size * 0.24, -size * 0.32);
+    const root = this.scene.add.container(pos.x, pos.y, [base, seam]);
+    this.layer.add(root);
+    const visual: PlateVisual = { root, base, seam };
+    this.paintWall(id, visual);
+    return visual;
+  }
+
+  /**
+   * Plate state is read from the board every time, never tracked separately: an
+   * intact `=` is plain, an intact `+` is armored steel with a dim seam, and a
+   * cracked `+` is scorched with the warning fracture showing.
+   */
+  private paintWall(id: CellId, visual: PlateVisual): void {
+    const armored = isArmoredPlate(this.board, id);
+    const style: PlateStyle = isCrackedPlate(this.board, id)
+      ? { fill: theme.colors.wallCracked, stroke: theme.colors.warning, width: 3, seam: 1 }
+      : armored
+        ? { fill: theme.colors.wallArmor, stroke: theme.colors.plateEdge, width: 4, seam: 0.3 }
+        : { fill: theme.colors.wall, stroke: theme.colors.wallEdge, width: 3, seam: 0 };
+    visual.base.setFillStyle(style.fill, 1);
+    visual.base.setStrokeStyle(style.width, style.stroke, 0.95);
+    visual.seam.setAlpha(style.seam);
   }
 
   private createCell(cell: CellState): CellVisual {

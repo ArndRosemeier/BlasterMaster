@@ -5,7 +5,7 @@ import { applyTurn, createGame } from './engine/game';
 import { cellId } from './engine/ids';
 import { legalMoves, occupiedCount } from './engine/board';
 import type { TurnResult, TurnSuccess } from './engine/types';
-import { AIRLOCK, BOLTS, FUNNEL, IRREGULAR, RECT_5, RING, SEAM, SPARK, TWIN_STACKS, assertShippedMaps, cellsFromRows, requireMap } from './maps';
+import { AIRLOCK, BOLTS, BULKHEAD, FUNNEL, IRREGULAR, MAP_LIST, RECT_5, RING, SEAM, SPARK, TWIN_STACKS, assertShippedMaps, cellsFromRows, requireMap, tilesFromRows } from './maps';
 
 describe('shipped maps', () => {
   it('build valid graphs with expected degrees', () => {
@@ -35,6 +35,18 @@ describe('shipped maps', () => {
     expect(getCell(airlock, cellId(2, 1)).neighbors).toHaveLength(3);
     expect(createBoard(BOLTS).walls).toEqual([cellId(3, 1), cellId(7, 1)]);
     expect(createBoard(SEAM).walls).toHaveLength(5);
+
+    expect(MAP_LIST).toHaveLength(11);
+    const bulkhead = createBoard(BULKHEAD);
+    expect(bulkhead.walls).toEqual([
+      cellId(3, 0),
+      cellId(4, 1),
+      cellId(4, 2),
+      cellId(4, 3),
+      cellId(5, 4),
+    ]);
+    expect(bulkhead.armored).toEqual([cellId(4, 1), cellId(4, 2), cellId(4, 3)]);
+    expect(bulkhead.cracked).toEqual([]);
   });
 
   it('parses occupancy rows and rejects unknown map ids', () => {
@@ -44,6 +56,10 @@ describe('shipped maps', () => {
       { x: 1, y: 1 },
     ]);
     expect(() => cellsFromRows(['#=#'])).toThrow(/wall glyphs/);
+    expect(tilesFromRows(['#+#']).cells).toEqual([{ x: 0, y: 0 }, { x: 2, y: 0 }]);
+    expect(tilesFromRows(['#+#']).walls).toEqual([{ x: 1, y: 0 }]);
+    expect(tilesFromRows(['#+#']).armored).toEqual([{ x: 1, y: 0 }]);
+    expect(() => cellsFromRows(['#+#'])).toThrow(/wall glyphs/);
     expect(() => requireMap('nope')).toThrow(/Unknown map/);
   });
 });

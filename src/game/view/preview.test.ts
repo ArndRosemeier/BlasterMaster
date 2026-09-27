@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { seedBoard } from '../engine/board';
 import { applyTurn, createGame } from '../engine/game';
 import { cellId } from '../engine/ids';
+import { applyMove } from '../engine/move';
 import { AIRLOCK, mapFromRows } from '../maps';
 import { previewPlacement } from './preview';
-import type { MapDefinition } from '../engine/types';
+import type { Game, MapDefinition } from '../engine/types';
 
 const SQUARE: MapDefinition = mapFromRows('sq', 'sq', ['##', '##']);
 
@@ -52,5 +53,33 @@ describe('previewPlacement', () => {
     expect(preview.dumps).toEqual([cellId(2, 0), cellId(2, 2), cellId(1, 1)]);
     expect(preview.dumps).not.toContain(cellId(3, 1));
     expect(preview.collapsed).toEqual([cellId(3, 1)]);
+    expect(preview.cracked).toEqual([]);
+  });
+
+  it('distinguishes a plate that only cracks from one that falls', () => {
+    const vault = mapFromRows('armor-vault', 'armor-vault', ['###', '#+#', '###']);
+    const game = createGame(vault);
+    const primed: Game = {
+      ...game,
+      board: seedBoard(game.board, [{ id: cellId(1, 0), count: 1, owner: 'a' }]),
+    };
+    const crack = previewPlacement(primed, cellId(1, 0));
+    if (crack === null) {
+      throw new Error('legal preview failed');
+    }
+    expect(crack.cracked).toEqual([cellId(1, 1)]);
+    expect(crack.collapsed).toEqual([]);
+
+    const afterCrack = applyMove(primed.board, 'a', cellId(1, 0), primed.hasPlaced);
+    if (!afterCrack.ok) {
+      throw new Error('setup failed');
+    }
+    const reloaded = seedBoard(afterCrack.final, [{ id: cellId(1, 0), count: 1, owner: 'a' }]);
+    const drop = previewPlacement({ ...primed, board: reloaded }, cellId(1, 0));
+    if (drop === null) {
+      throw new Error('legal preview failed');
+    }
+    expect(drop.collapsed).toEqual([cellId(1, 1)]);
+    expect(drop.cracked).toEqual([]);
   });
 });

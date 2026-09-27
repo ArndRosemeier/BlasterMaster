@@ -13,6 +13,7 @@ describe('layoutBoard', () => {
       name: 'sq',
       cells: cellsFromRows(['##', '##']),
       walls: [],
+      armored: [],
       deep: [],
     });
     const layout = layoutBoard(board, { x: 0, y: 0, width: 400, height: 400 });
@@ -52,6 +53,25 @@ describe('cardGrid', () => {
     }
     expect(placements[8]).toEqual({ x: 485, y: 542 });
     expect(placements[9]).toEqual({ x: 795, y: 542 });
+  });
+
+  it('keeps an eleven-map card on screen by starting a third row above BACK', () => {
+    const placements = cardGrid(11, 4, {
+      firstX: 175,
+      topY: 258,
+      pitchX: 310,
+      pitchY: 142,
+      centerX: CANVAS_WIDTH / 2,
+    });
+    expect(placements).toHaveLength(11);
+    // BACK sits at y=672 with a 44-tall panel; a card is 128 tall.
+    for (const place of placements) {
+      expect(place.x - 148).toBeGreaterThanOrEqual(0);
+      expect(place.x + 148).toBeLessThanOrEqual(CANVAS_WIDTH);
+      expect(place.y + 64).toBeLessThan(650);
+    }
+    expect(placements[8]).toEqual({ x: 330, y: 542 });
+    expect(placements[10]).toEqual({ x: 950, y: 542 });
   });
 });
 

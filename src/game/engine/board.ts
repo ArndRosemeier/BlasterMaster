@@ -94,7 +94,14 @@ export function createBoard(map: MapDefinition): Board {
 
   const cellCoords = collectCoords(map.cells, 'cell', map.id);
   const wallCoords = collectCoords(map.walls, 'wall', map.id);
+  const armoredCoords = collectCoords(map.armored, 'armored plate', map.id);
   const deepCoords = collectCoords(map.deep, 'deep cell', map.id);
+  for (const id of armoredCoords.keys()) {
+    // An armored plate is a WALL with two hit points, never a third kind of tile.
+    if (!wallCoords.has(id)) {
+      throw new Error(`Map "${map.id}" marks unknown plate ${id} as armored`);
+    }
+  }
   for (const id of wallCoords.keys()) {
     if (cellCoords.has(id)) {
       throw new Error(`Map "${map.id}" has overlapping cell and wall ${id}`);
@@ -144,7 +151,11 @@ export function createBoard(map: MapDefinition): Board {
   }
   walls.sort();
 
-  return { cells, walls };
+  // The armored plates validate exactly like walls (they ARE walls); this list is
+  // only the durability fact, sorted the same way so it is comparable by value.
+  const armored = [...armoredCoords.keys()].sort();
+
+  return { cells, walls, cracked: [], armored };
 }
 
 export function getCell(board: Board, id: CellId): CellState {
@@ -161,6 +172,26 @@ export function boardCells(board: Board): readonly CellState[] {
 
 export function boardWalls(board: Board): readonly CellId[] {
   return board.walls;
+}
+
+/**
+ * Every plate still standing — intact (`walls`) and cracked (`cracked`). Anything
+ * that must treat a cracked plate as a plate (bounds, the shaft grid, the view,
+ * the collapse scan) reads THIS, never `board.walls`, because a cracked plate is
+ * no longer in `walls`.
+ */
+export function boardPlates(board: Board): readonly CellId[] {
+  return [...board.walls, ...board.cracked];
+}
+
+/** Is this plate armored — a map-authored 2-hit plate? Durability is a MAP fact. */
+export function isArmoredPlate(board: Board, id: CellId): boolean {
+  return board.armored.includes(id);
+}
+
+/** Has this plate already taken its first hit? Only an armored plate ever can be. */
+export function isCrackedPlate(board: Board, id: CellId): boolean {
+  return board.cracked.includes(id);
 }
 
 export function occupiedCount(board: Board, player: PlayerId): number {
@@ -230,7 +261,7 @@ export function seedBoard(board: Board, seeds: readonly TokenSeed[]): Board {
     };
   }
 
-  return { cells: next, walls: board.walls };
+  return { ...board, cells: next };
 }
 
 export function replaceCell(
@@ -240,6 +271,7 @@ export function replaceCell(
 ): Board {
   const cell = getCell(board, id);
   return {
+    ...board,
     cells: {
       ...board.cells,
       [id]: {
@@ -248,10 +280,15 @@ export function replaceCell(
         owner: patch.owner,
       },
     },
-    walls: board.walls,
   };
 }
 
+/**
+ * Position signature. EVERY piece of board state enters it — cells, intact plates
+ * (`#w`), cracked plates (`#x`) and the map-authored armor (`#a`) — so two boards
+ * that differ in ANY of them are different positions to the cascade's repeat
+ * guard. Dropping a term makes the guard blind to that difference.
+ */
 export function hashBoard(board: Board): string {
   const cells = Object.keys(board.cells)
     .sort()
@@ -261,35 +298,57 @@ export function hashBoard(board: Board): string {
     })
     .join('|');
   const walls = [...board.walls].sort().join(',');
-  return `${cells}|#w:${walls}`;
+  const cracked = [...board.cracked].sort().join(',');
+  const armored = [...board.armored].sort().join(',');
+  return `${cells}|#w:${walls}|#x:${cracked}|#a:${armored}`;
 }
 
-export function collapseWalls(
-  board: Board,
-  exploded: readonly CellId[],
-): { readonly board: Board; readonly collapsed: readonly CellId[] } {
-  if (exploded.length === 0 || board.walls.length === 0) {
-    return { board, collapsed: [] };
+export type WallDamage = {
+  readonly board: Board;
+  /** Plates that took their LAST hit: now empty, unowned, plain cells. */
+  readonly collapsed: readonly CellId[];
+  /** Plates that took their FIRST hit: now cracked, and still plates. */
+  readonly cracked: readonly CellId[];
+};
+
+/**
+ * Applies ONE wave's damage to every plate that blast touches. Adjacency is
+ * unchanged: orthogonal to any exploded cell, or diagonal to an exploded DEEP cell.
+ * DAMAGE IS ONE PER WAVE: a plate touched in both ways — or by several exploded
+ * cells — is hit exactly once, so a 2-hit plate can never fall to a single wave.
+ * An intact 1-hit plate falls; an intact armored plate cracks; a cracked armored
+ * plate falls. A fallen plate becomes today's empty unowned plain cell and the
+ * graph is rewired exactly as before; cracking changes no cell and no edge.
+ */
+export function collapseWalls(board: Board, exploded: readonly CellId[]): WallDamage {
+  const plates = boardPlates(board);
+  if (exploded.length === 0 || plates.length === 0) {
+    return { board, collapsed: [], cracked: [] };
   }
 
   const explodedSet = new Set(exploded);
+  const newlyCracked: CellId[] = [];
   const falling: CellId[] = [];
-  for (const wallId of board.walls) {
-    const pos = parseCellId(wallId);
-    if (orthoNeighborIds(pos.x, pos.y).some((neighbor) => explodedSet.has(neighbor))) {
-      falling.push(wallId);
+  for (const plateId of plates) {
+    const pos = parseCellId(plateId);
+    const touched =
+      orthoNeighborIds(pos.x, pos.y).some((neighbor) => explodedSet.has(neighbor)) ||
+      diagNeighborIds(pos.x, pos.y).some(
+        (neighbor) => explodedSet.has(neighbor) && board.cells[neighbor]?.deep === true,
+      );
+    if (!touched) {
       continue;
     }
-    const deepShock = diagNeighborIds(pos.x, pos.y).some(
-      (neighbor) => explodedSet.has(neighbor) && board.cells[neighbor]?.deep === true,
-    );
-    if (deepShock) {
-      falling.push(wallId);
+    if (isArmoredPlate(board, plateId) && !isCrackedPlate(board, plateId)) {
+      newlyCracked.push(plateId);
+    } else {
+      falling.push(plateId);
     }
   }
+  newlyCracked.sort();
   falling.sort();
-  if (falling.length === 0) {
-    return { board, collapsed: [] };
+  if (newlyCracked.length === 0 && falling.length === 0) {
+    return { board, collapsed: [], cracked: [] };
   }
 
   const fallSet = new Set(falling);
@@ -307,13 +366,19 @@ export function collapseWalls(
       owner: null,
     };
   }
+  // `walls` holds INTACT plates only, so a plate that just cracked leaves it too —
+  // it is still a plate, but `cracked` is now the list that says so.
+  const leftWalls = new Set([...falling, ...newlyCracked]);
 
   return {
     board: {
-      cells: rewireCells(cells),
-      walls: board.walls.filter((id) => !fallSet.has(id)),
+      cells: falling.length === 0 ? board.cells : rewireCells(cells),
+      walls: board.walls.filter((id) => !leftWalls.has(id)),
+      cracked: [...board.cracked.filter((id) => !fallSet.has(id)), ...newlyCracked].sort(),
+      armored: board.armored,
     },
     collapsed: falling,
+    cracked: newlyCracked,
   };
 }
 
@@ -341,8 +406,9 @@ export function mapBounds(board: Board): {
   for (const cell of cells) {
     visit(cell.x, cell.y);
   }
-  for (const wallId of board.walls) {
-    const pos = parseCellId(wallId);
+  // A cracked plate still bounds the map: it occupies its square until it falls.
+  for (const plateId of boardPlates(board)) {
+    const pos = parseCellId(plateId);
     visit(pos.x, pos.y);
   }
   return { minX, maxX, minY, maxY };

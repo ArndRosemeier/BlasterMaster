@@ -232,6 +232,12 @@ export class PlayScene extends Phaser.Scene {
       this.flashBanner(wave.collapsed.length > 1 ? `SEAM OPEN  ×${wave.collapsed.length}` : 'PLATE DOWN');
       await this.wait(170);
     }
+    if (wave.cracked.length > 0) {
+      playSound('collapse');
+      this.boardView.damageWalls(wave.cracked);
+      this.flashBanner(wave.cracked.length > 1 ? `ARMOR CRACKED  ×${wave.cracked.length}` : 'ARMOR CRACKED');
+      await this.wait(170);
+    }
     this.boardView.setBoard(wave.board);
     if (wave.exploded.some((id) => getCell(wave.board, id).count > 0)) {
       playSound('leftover');

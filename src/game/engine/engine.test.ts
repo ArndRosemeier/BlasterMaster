@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from '../../lib/rng';
-import { AIRLOCK, DEEP_FIELD, cellsFromRows, mapFromRows } from '../maps';
+import { AIRLOCK, BULKHEAD, DEEP_FIELD, cellsFromRows, mapFromRows } from '../maps';
 import {
   blastTargets,
   boardCells,
+  collapseWalls,
   createBoard,
   getCell,
   hashBoard,
   isNearCritical,
   legalMoves,
+  mapBounds,
   occupiedCount,
   seedBoard,
   threshold,
@@ -57,7 +59,7 @@ describe('createBoard', () => {
   });
 
   it('rejects empty maps and duplicate coordinates', () => {
-    expect(() => createBoard({ id: 'empty', name: 'empty', cells: [], walls: [], deep: [] })).toThrow(/no cells/);
+    expect(() => createBoard({ id: 'empty', name: 'empty', cells: [], walls: [], armored: [], deep: [] })).toThrow(/no cells/);
     expect(() =>
       createBoard({
         id: 'dup',
@@ -67,6 +69,7 @@ describe('createBoard', () => {
           { x: 0, y: 0 },
         ],
         walls: [],
+        armored: [],
         deep: [],
       }),
     ).toThrow(/duplicate/);
@@ -273,6 +276,7 @@ describe('collapsible walls', () => {
         name: 'overlap',
         cells: [{ x: 0, y: 0 }, { x: 1, y: 0 }],
         walls: [{ x: 1, y: 0 }],
+        armored: [],
         deep: [],
       }),
     ).toThrow(/overlapping/);
@@ -357,6 +361,193 @@ describe('collapsible walls', () => {
     expect(occupiedCount(result.final, 'b')).toBe(0);
     expect(result.outcome).toEqual({ type: 'win', player: 'a', cause: 'wipe' });
     expect(result.final.walls).toEqual([cellId(3, 1)]);
+  });
+});
+
+describe('armored plates', () => {
+  /** A `+` ringed by cells: the corner cracks it, the next detonation drops it. */
+  const VAULT = map('armor-vault', ['###', '#+#', '###']);
+  /** A `+` with a normal cell beside it and a DEEP cell on its corner. */
+  const DOUBLE_TAP = map('armor-double', ['*#', '#+']);
+  /** A `=` and a `+` beside the same exploding cell. */
+  const MIXED = map('mixed-plates', ['.=#', '+##', '###']);
+  /** A `+` at the edge, where it is the only thing holding the map's right bound. */
+  const TIP = map('armor-tip', ['##+']);
+
+  function crackOnce(): Board {
+    const seeded = seedBoard(createBoard(VAULT), [{ id: cellId(1, 0), count: 1, owner: 'a' }]);
+    return requireOk(applyMove(seeded, 'a', cellId(1, 0), NEVER_PLACED)).final;
+  }
+
+  it('cracks on the first detonation and leaves the plate standing', () => {
+    const board = createBoard(VAULT);
+    expect(board.walls).toEqual([cellId(1, 1)]);
+    expect(board.armored).toEqual([cellId(1, 1)]);
+    expect(board.cracked).toEqual([]);
+
+    const seeded = seedBoard(board, [{ id: cellId(1, 0), count: 1, owner: 'a' }]);
+    const result = requireOk(applyMove(seeded, 'a', cellId(1, 0), NEVER_PLACED));
+    const first = result.waves[0];
+    if (first === undefined) {
+      throw new Error('expected the edge to explode');
+    }
+    expect(first.exploded).toEqual([cellId(1, 0)]);
+    expect(first.cracked).toEqual([cellId(1, 1)]);
+    expect(first.collapsed).toEqual([]);
+    expect(first.board.walls).toEqual([]);
+    expect(first.board.cracked).toEqual([cellId(1, 1)]);
+    // Still a plate: no cell took its square, so it cannot be reached at all.
+    expect(first.board.cells[cellId(1, 1)]).toBeUndefined();
+    expect(() => getCell(first.board, cellId(1, 1))).toThrow(/Unknown cell/);
+    expect(result.waves).toHaveLength(1);
+  });
+
+  it('drops on the second detonation as an empty unowned plain cell and rewires', () => {
+    const cracked = crackOnce();
+    expect(cracked.cracked).toEqual([cellId(1, 1)]);
+    expect(cracked.walls).toEqual([]);
+    expect(countOf(cracked, 1, 0)).toBe(0);
+
+    const reloaded = seedBoard(cracked, [{ id: cellId(1, 0), count: 1, owner: 'a' }]);
+    const result = requireOk(applyMove(reloaded, 'a', cellId(1, 0), { a: true, b: false }));
+    const wave = result.waves[0];
+    if (wave === undefined) {
+      throw new Error('expected the second detonation');
+    }
+    expect(wave.collapsed).toEqual([cellId(1, 1)]);
+    expect(wave.cracked).toEqual([]);
+    expect(wave.board.cracked).toEqual([]);
+    expect(wave.board.walls).toEqual([]);
+    const fallen = getCell(wave.board, cellId(1, 1));
+    expect(fallen.count).toBe(0);
+    expect(fallen.owner).toBeNull();
+    expect(fallen.deep).toBe(false);
+    expect(fallen.neighbors).toEqual([
+      cellId(1, 0),
+      cellId(2, 1),
+      cellId(1, 2),
+      cellId(0, 1),
+    ]);
+    // The graph is rewired around the new cell, exactly like a `=` collapse.
+    expect(getCell(wave.board, cellId(1, 0)).neighbors).toEqual([
+      cellId(2, 0),
+      cellId(1, 1),
+      cellId(0, 0),
+    ]);
+    // Once dropped the square is a cell for good: no plate comes back.
+    expect(result.final.cells[cellId(1, 1)]).toBeDefined();
+    expect(result.final.walls).toEqual([]);
+    expect(result.final.cracked).toEqual([]);
+  });
+
+  it('hashes the cracked set, so a damaged position is its own position', () => {
+    const intact = createBoard(VAULT);
+    const damaged = collapseWalls(intact, [cellId(1, 0)]);
+    expect(damaged.board.cells).toEqual(intact.cells);
+    expect(damaged.cracked).toEqual([cellId(1, 1)]);
+    expect(hashBoard(damaged.board)).not.toBe(hashBoard(intact));
+    expect(hashBoard(crackOnce())).toBe(hashBoard(crackOnce()));
+    // The contract, independent of `walls`: a Board VALUE that differs ONLY in its
+    // cracked set must not collide. (This value is not reachable by play — a cracked
+    // plate has left `walls` — but `hashBoard` must still be a function of it.)
+    expect(hashBoard({ ...intact, cracked: [cellId(1, 1)] })).not.toBe(hashBoard(intact));
+  });
+
+  it('still drops a one-hit plate on the first detonation', () => {
+    const board = createBoard(MIXED);
+    expect(board.walls).toEqual([cellId(0, 1), cellId(1, 0)]);
+    expect(board.armored).toEqual([cellId(0, 1)]);
+
+    const seeded = seedBoard(board, [{ id: cellId(1, 1), count: 1, owner: 'a' }]);
+    const result = requireOk(applyMove(seeded, 'a', cellId(1, 1), NEVER_PLACED));
+    const first = result.waves[0];
+    if (first === undefined) {
+      throw new Error('expected the center to explode');
+    }
+    expect(first.exploded).toEqual([cellId(1, 1)]);
+    expect(first.collapsed).toEqual([cellId(1, 0)]);
+    expect(first.cracked).toEqual([cellId(0, 1)]);
+    expect(first.board.walls).toEqual([]);
+    expect(first.board.cracked).toEqual([cellId(0, 1)]);
+    expect(countOf(first.board, 1, 0)).toBe(0);
+    expect(ownerOf(first.board, 1, 0)).toBeNull();
+    expect(result.waves).toHaveLength(1);
+  });
+
+  it('counts one damage per wave when a plate is touched twice', () => {
+    const board = createBoard(DOUBLE_TAP);
+    expect(board.armored).toEqual([cellId(1, 1)]);
+    const seeded = seedBoard(board, [
+      { id: cellId(0, 0), count: 1, owner: 'a' },
+      { id: cellId(1, 0), count: 1, owner: 'a' },
+    ]);
+    const result = requireOk(applyMove(seeded, 'a', cellId(0, 0), NEVER_PLACED));
+    const first = result.waves[0];
+    if (first === undefined) {
+      throw new Error('expected a wave');
+    }
+    // The plate's orthogonal neighbour AND the deep cell on its corner both fire.
+    expect(first.exploded).toEqual([cellId(0, 0), cellId(1, 0)]);
+    expect(first.cracked).toEqual([cellId(1, 1)]);
+    expect(first.collapsed).toEqual([]);
+    expect(first.board.cracked).toEqual([cellId(1, 1)]);
+    expect(first.board.cells[cellId(1, 1)]).toBeUndefined();
+  });
+
+  it('does not send the blast through the plate in the wave that cracked it', () => {
+    const board = createBoard(map('armor-door', ['##+##']));
+    const result = requireOk(applyMove(board, 'a', cellId(1, 0), NEVER_PLACED));
+    const first = result.waves[0];
+    if (first === undefined) {
+      throw new Error('expected a wave');
+    }
+    expect(first.exploded).toEqual([cellId(1, 0)]);
+    expect(first.transfers.map((transfer) => transfer.to)).toEqual([cellId(0, 0)]);
+    expect(first.cracked).toEqual([cellId(2, 0)]);
+    expect(first.collapsed).toEqual([]);
+    // The far island gets nothing: the cracked plate is still a plate, not a cell.
+    expect(countOf(first.board, 3, 0)).toBe(0);
+    expect(ownerOf(first.board, 3, 0)).toBeNull();
+    expect(first.board.cells[cellId(2, 0)]).toBeUndefined();
+    expect(getCell(first.board, cellId(1, 0)).neighbors).toEqual([cellId(0, 0)]);
+  });
+
+  it('keeps a cracked plate bounding the map', () => {
+    const board = createBoard(TIP);
+    expect(mapBounds(board)).toEqual({ minX: 0, maxX: 2, minY: 0, maxY: 0 });
+
+    const result = requireOk(applyMove(board, 'a', cellId(1, 0), NEVER_PLACED));
+    const first = result.waves[0];
+    if (first === undefined) {
+      throw new Error('expected a wave');
+    }
+    expect(first.cracked).toEqual([cellId(2, 0)]);
+    expect(first.board.cracked).toEqual([cellId(2, 0)]);
+    expect(mapBounds(first.board)).toEqual({ minX: 0, maxX: 2, minY: 0, maxY: 0 });
+  });
+
+  it('validates the armored glyph like a wall', () => {
+    expect(() => createBoard(map('armor-orphan', ['##.+']))).toThrow(/orphan wall/);
+    expect(() =>
+      createBoard({
+        id: 'armor-void',
+        name: 'armor-void',
+        cells: cellsFromRows(['##']),
+        walls: [],
+        armored: [{ x: 5, y: 5 }],
+        deep: [],
+      }),
+    ).toThrow(/unknown plate .* as armored/);
+    expect(() =>
+      createBoard({
+        id: 'armor-overlap',
+        name: 'armor-overlap',
+        cells: [{ x: 0, y: 0 }, { x: 1, y: 0 }],
+        walls: [{ x: 1, y: 0 }],
+        armored: [{ x: 1, y: 0 }],
+        deep: [],
+      }),
+    ).toThrow(/overlapping/);
   });
 });
 
@@ -505,6 +696,7 @@ describe('deep cells', () => {
         name: 'deep-wall',
         cells: cellsFromRows(['##']),
         walls: [{ x: 0, y: 1 }],
+        armored: [],
         deep: [{ x: 0, y: 1 }],
       }),
     ).toThrow(/marks wall .* as deep/);
@@ -514,6 +706,7 @@ describe('deep cells', () => {
         name: 'deep-void',
         cells: cellsFromRows(['##']),
         walls: [],
+        armored: [],
         deep: [{ x: 5, y: 5 }],
       }),
     ).toThrow(/marks unknown cell .* as deep/);
@@ -579,5 +772,35 @@ describe('random legal play terminates each cascade', () => {
   it('never hangs on a deep arena where the heart fires eight ways', () => {
     playRandomGames(map('deep-arena', ['#####', '#####', '##*##', '#####', '#####']), 20260908, 40);
     playRandomGames(DEEP_FIELD, 20260909, 40);
+  });
+
+  it('keeps the plate invariants while random play cracks and drops BULKHEAD', () => {
+    const rng = mulberry32(20260910);
+    for (let gameIndex = 0; gameIndex < 8; gameIndex += 1) {
+      let game = createGame(BULKHEAD);
+      let moves = 0;
+      while (game.outcome.type === 'ongoing' && moves < 200) {
+        const options = legalMoves(game.board, game.currentPlayer);
+        const pick = options[Math.floor(rng() * options.length)];
+        if (pick === undefined) {
+          throw new Error('legalMoves returned empty while game is ongoing');
+        }
+        const tokensBefore = tokenCount(game.board, 'a') + tokenCount(game.board, 'b');
+        const result = requireOk(applyTurn(game, pick));
+        const board = result.game.board;
+        expect(tokenCount(board, 'a') + tokenCount(board, 'b')).toBe(tokensBefore + 1);
+        // `walls` and `cracked` stay disjoint, only armored plates ever crack, and a
+        // cracked plate is still a plate — never a cell.
+        const crackedSet = new Set(board.cracked);
+        expect(board.walls.filter((id) => crackedSet.has(id))).toEqual([]);
+        for (const id of board.cracked) {
+          expect(board.armored).toContain(id);
+          expect(board.cells[id]).toBeUndefined();
+        }
+        game = result.game;
+        moves += 1;
+      }
+      expect(moves).toBeGreaterThan(0);
+    }
   });
 });

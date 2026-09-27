@@ -19,6 +19,10 @@ export const theme = {
     plateHot: 0x3a2a18,
     wall: 0x2a241c,
     wallEdge: 0xb8924a,
+    /** Intact armored plate (`+`): steel, so two hits are readable before the first. */
+    wallArmor: 0x3b4a5c,
+    /** Cracked armored plate: scorched, wearing the warning fracture. */
+    wallCracked: 0x4a3a14,
     /** Deep cells: cut corners, diagonal reach pips, and the menu schematic. */
     deep: 0x9a6ad6,
     shaft: 0x070809,

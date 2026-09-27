@@ -40,7 +40,7 @@ function applyWave(
   const transfers: TokenTransfer[] = [];
 
   for (const id of exploded) {
-    const cell = getCell({ cells, walls: board.walls }, id);
+    const cell = getCell({ ...board, cells }, id);
     const leftover = cell.count - threshold(cell);
     if (leftover < 0) {
       throw new Error(`Cell ${id} exploded below zero`);
@@ -56,7 +56,7 @@ function applyWave(
   }
 
   for (const transfer of transfers) {
-    const target = getCell({ cells, walls: board.walls }, transfer.to);
+    const target = getCell({ ...board, cells }, transfer.to);
     cells[transfer.to] = {
       ...target,
       count: target.count + 1,
@@ -65,7 +65,7 @@ function applyWave(
   }
 
   return {
-    board: { cells, walls: board.walls },
+    board: { ...board, cells },
     transfers,
   };
 }
@@ -127,6 +127,7 @@ export function applyMove(
       exploded,
       transfers: dump.transfers,
       collapsed: grown.collapsed,
+      cracked: grown.cracked,
     });
 
     const opponent = opponentOf(player);

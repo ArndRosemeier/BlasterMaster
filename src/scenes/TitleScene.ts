@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { armAudio, loadSoundBank, playSound, playTitleTheme } from '../game/audio/bus';
-import { createBoard } from '../game/engine/board';
+import { boardPlates, createBoard, isArmoredPlate } from '../game/engine/board';
 import { parseCellId } from '../game/engine/ids';
+import type { MapDefinition } from '../game/engine/types';
 import { AI_DIFFICULTIES, type AiDifficulty } from '../game/ai/choose';
 import { CAMPAIGN, type Mission } from '../game/ops/campaign';
 import { browserStore, isMissionUnlocked, loadProgressOrReset, starsFor } from '../game/ops/progress';
@@ -168,18 +169,7 @@ export class TitleScene extends Phaser.Scene {
       if (place === undefined) {
         throw new Error(`MAP_LIST placement missing for index ${index}`);
       }
-      if (!isMapId(map.id)) {
-        throw new Error(`MAP_LIST contains unknown id ${map.id}`);
-      }
-      this.drawMapCard(
-        map.id,
-        map.name,
-        map.cells.length,
-        map.walls.length,
-        map.deep.length,
-        place.x,
-        place.y,
-      );
+      this.drawMapCard(map, place.x, place.y);
     });
 
     makePanelButton(this, 120, CANVAS_HEIGHT - 48, 160, 44, 'BACK', () => {
@@ -254,21 +244,17 @@ export class TitleScene extends Phaser.Scene {
     });
   }
 
-  private drawMapCard(
-    mapId: MapId,
-    name: string,
-    cellCount: number,
-    wallCount: number,
-    deepCount: number,
-    x: number,
-    y: number,
-  ): void {
+  private drawMapCard(map: MapDefinition, x: number, y: number): void {
+    if (!isMapId(map.id)) {
+      throw new Error(`MAP_LIST contains unknown id ${map.id}`);
+    }
+    const mapId: MapId = map.id;
     const card = this.keep(this.add.rectangle(x, y, 296, 128, theme.colors.plateInner, 0.88));
     card.setStrokeStyle(2, theme.colors.plateEdge, 1);
     this.drawSchematic(mapId, x, y - 18);
     this.keep(
       this.add
-        .text(x, y + 36, name, {
+        .text(x, y + 36, map.name, {
           fontFamily: theme.fonts.display,
           fontSize: '15px',
           color: theme.colors.hudText,
@@ -276,11 +262,15 @@ export class TitleScene extends Phaser.Scene {
         })
         .setOrigin(0.5),
     );
-    const wallLine = wallCount > 0 ? ` · ${wallCount} ${wallCount === 1 ? 'PLATE' : 'PLATES'}` : '';
-    const deepLine = deepCount > 0 ? ` · ${deepCount} DEEP` : '';
+    const wallLine =
+      map.walls.length > 0
+        ? ` · ${map.walls.length} ${map.walls.length === 1 ? 'PLATE' : 'PLATES'}`
+        : '';
+    const deepLine = map.deep.length > 0 ? ` · ${map.deep.length} DEEP` : '';
+    const armorLine = map.armored.length > 0 ? ` · ${map.armored.length} ARMORED` : '';
     this.keep(
       this.add
-        .text(x, y + 54, `${cellCount} CELLS${wallLine}${deepLine}`, {
+        .text(x, y + 54, `${map.cells.length} CELLS${wallLine}${deepLine}${armorLine}`, {
           fontFamily: theme.fonts.mono,
           fontSize: '13px',
           color: theme.colors.hudMuted,
@@ -317,10 +307,11 @@ export class TitleScene extends Phaser.Scene {
       const tint = cell.deep ? theme.colors.deep : theme.colors.plateEdge;
       this.keep(this.add.rectangle(pos.x, pos.y, layout.cellSize - 1, layout.cellSize - 1, tint, 0.95));
     }
-    for (const wallId of board.walls) {
+    for (const wallId of boardPlates(board)) {
       const pos = parseCellId(wallId);
       const center = cellCenter(layout, pos.x, pos.y);
-      this.keep(this.add.rectangle(center.x, center.y, layout.cellSize - 1, layout.cellSize - 1, theme.colors.wallEdge, 0.95));
+      const tint = isArmoredPlate(board, wallId) ? theme.colors.wallArmor : theme.colors.wallEdge;
+      this.keep(this.add.rectangle(center.x, center.y, layout.cellSize - 1, layout.cellSize - 1, tint, 0.95));
     }
   }
 

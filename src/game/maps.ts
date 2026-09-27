@@ -6,14 +6,18 @@ const WALL = '=';
 const VOID = '.';
 /** Deep cell: a cell that also counts and fires on the diagonals. */
 const DEEP = '*';
+/** Armored plate: a wall that takes TWO detonations — the first only cracks it. */
+const ARMORED = '+';
 
 export function tilesFromRows(rows: readonly string[]): {
   readonly cells: readonly MapCell[];
   readonly walls: readonly MapCell[];
+  readonly armored: readonly MapCell[];
   readonly deep: readonly MapCell[];
 } {
   const cells: MapCell[] = [];
   const walls: MapCell[] = [];
+  const armored: MapCell[] = [];
   const deep: MapCell[] = [];
   rows.forEach((row, y) => {
     [...row].forEach((glyph, x) => {
@@ -26,8 +30,12 @@ export function tilesFromRows(rows: readonly string[]): {
         deep.push({ x, y });
         return;
       }
-      if (glyph === WALL) {
+      if (glyph === WALL || glyph === ARMORED) {
+        // An armored plate IS a wall; `armored` is only its durability subset.
         walls.push({ x, y });
+        if (glyph === ARMORED) {
+          armored.push({ x, y });
+        }
         return;
       }
       if (glyph === VOID) {
@@ -36,7 +44,7 @@ export function tilesFromRows(rows: readonly string[]): {
       throw new Error(`Unknown map glyph "${glyph}" at (${x}, ${y})`);
     });
   });
-  return { cells, walls, deep };
+  return { cells, walls, armored, deep };
 }
 
 export function cellsFromRows(rows: readonly string[]): readonly MapCell[] {
@@ -52,7 +60,14 @@ export function cellsFromRows(rows: readonly string[]): readonly MapCell[] {
 
 export function mapFromRows(id: string, name: string, rows: readonly string[]): MapDefinition {
   const tiles = tilesFromRows(rows);
-  return { id, name, cells: tiles.cells, walls: tiles.walls, deep: tiles.deep };
+  return {
+    id,
+    name,
+    cells: tiles.cells,
+    walls: tiles.walls,
+    armored: tiles.armored,
+    deep: tiles.deep,
+  };
 }
 
 export const SPARK: MapDefinition = mapFromRows('spark', 'SPARK', ['###', '###', '###']);
@@ -126,6 +141,20 @@ export const DEEP_FIELD: MapDefinition = mapFromRows('deep', 'DEEP FIELD', [
   '####*',
 ]);
 
+/**
+ * The armored-plate map: a steel bulkhead runs down the middle, three `+` plates
+ * deep, with a one-hit `=` at each end. The two-hit plates turn the map's central
+ * verb — how many waves a lane costs you — into a resource: cracking is tempo,
+ * dropping is commitment.
+ */
+export const BULKHEAD: MapDefinition = mapFromRows('bulkhead', 'BULKHEAD', [
+  '###=#####',
+  '####+####',
+  '###*+####',
+  '####+####',
+  '#####=###',
+]);
+
 export const MAPS = {
   spark: SPARK,
   funnel: FUNNEL,
@@ -137,6 +166,7 @@ export const MAPS = {
   bolts: BOLTS,
   seam: SEAM,
   deep: DEEP_FIELD,
+  bulkhead: BULKHEAD,
 } as const;
 
 export type MapId = keyof typeof MAPS;
@@ -152,6 +182,7 @@ export const MAP_LIST: readonly MapDefinition[] = [
   BOLTS,
   SEAM,
   DEEP_FIELD,
+  BULKHEAD,
 ];
 
 export function isMapId(value: string): value is MapId {

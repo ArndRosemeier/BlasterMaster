@@ -17,7 +17,19 @@ export type CellState = {
 
 export type Board = {
   readonly cells: Readonly<Record<CellId, CellState>>;
+  /** INTACT plates: 1-hit (`=`) and undamaged 2-hit (`+`) alike. */
   readonly walls: readonly CellId[];
+  /**
+   * Damaged 2-hit plates. DISJOINT from `walls`, and still a plate: it blocks,
+   * bounds the map and renders exactly like one until its next hit drops it.
+   */
+  readonly cracked: readonly CellId[];
+  /**
+   * Map-authored durability, immutable for the life of the board: a `+` plate
+   * takes two hits. "Is this plate armored?" is a MAP fact, never a mutation, so
+   * `cracked` is always a subset of `armored`.
+   */
+  readonly armored: readonly CellId[];
 };
 
 export type MapCell = {
@@ -30,6 +42,8 @@ export type MapDefinition = {
   readonly name: string;
   readonly cells: readonly MapCell[];
   readonly walls: readonly MapCell[];
+  /** Subset of `walls` that takes two detonations: the `+` glyph. */
+  readonly armored: readonly MapCell[];
   /** Subset of `cells` that detonates on the diagonals too. */
   readonly deep: readonly MapCell[];
 };
@@ -58,6 +72,8 @@ export type WaveStep = {
   readonly exploded: readonly CellId[];
   readonly transfers: readonly TokenTransfer[];
   readonly collapsed: readonly CellId[];
+  /** Plates that took their FIRST hit in this wave and are now cracked. */
+  readonly cracked: readonly CellId[];
 };
 
 export type MoveSuccess = {
