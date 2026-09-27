@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { mulberry32 } from '../lib/rng';
 import { createBoard, getCell } from './engine/board';
 import { applyTurn, createGame } from './engine/game';
 import { cellId } from './engine/ids';
@@ -62,13 +63,7 @@ describe('scripted play on shipped maps', () => {
   });
 
   it('random CORE GRID games always reach win or draw', () => {
-    let seed = 0x51a7e55d;
-    const rng = (): number => {
-      seed += 0x6d2b79f5;
-      let r = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-    };
+    const rng = mulberry32(0x51a7e55d);
 
     for (let i = 0; i < 20; i += 1) {
       let game = createGame(RECT_5);
