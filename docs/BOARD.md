@@ -34,7 +34,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: 98c630da8c446023e6d41f28663ce1110bb7a0a1 · 2026-09-27T16:5xZ
+reconciled: 871875ad4d3f348c38effecefbc641506d644167 · 2026-09-27T17:17Z
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -42,22 +42,36 @@ SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff 
     driven by WAKE EVENTS ONLY: an owner message, a writer's LANDED/BLOCKED report, or a
     runtime failure notice. A parked tick is not a work order and gets silence.
 
-IN-FLIGHT | row=13 | writer=session-6333ae4d-99bc-46c5-80e4-0934794da9d9
-  | worktree=/home/administrator/projects/BlasterMaster/worktrees/armored-plates
-  | branch=feat/armored-plates | base=98c630d | dispatched_by=session-1e324382
-  | state=dispatched 2026-09-27T16:5xZ, deps installed, no commit yet
-  | note=TWO-HIT PLATES — the prerequisite the owner asked to combine with the eater ("Combine
-  this with taking 2 explosions to break a wall, i think that was a good idea"). New map glyph
-  `+`; the first adjacent detonation CRACKS a plate, the second drops it (today's behaviour).
-  `=` keeps its exact 1-hit meaning so AIRLOCK/BOLTS/THE SEAM and their campaign coach text are
-  untouched, and no existing map is edited. Damage is ONE per wave even if a wave touches the
-  same plate orthogonally and by a deep diagonal. `collapseWalls` reports both outcomes, and
-  **`hashBoard` must gain the cracked set** — today it is cells + wall ids only, so a cracked
-  plate would hash identically to an intact one and the repeat guard would conflate two
-  positions. View: a visible cracked state and a hover preview that distinguishes cracks from
-  drops. One new map exercising `+` (11th card; `cardGrid` already handles >9 — the writer must
-  verify, not assume). Ledger row 11. NOT in this slice: the eater, neutral ownership, or any
-  new actor — see row=12.
+LANDED | row=13 | sha=871875a | verify=DISPATCHER'S OWN: (1) my own `npm run gate` on the rebased
+  tree and again on the merged main tip → exit 0 FULL GREEN, typecheck 0 · lint 0 · **83 tests /
+  13 files** · build 0 (logs .gate-logs/gate-20260927T171605Z-3946086.log then …T171657Z-3948991.log);
+  (2) MY OWN injections, all reverted, tree clean at 871875a: disabling `isArmoredPlate` reds EIGHT
+  tests (survive-first-hit, drop-on-second, one-damage-per-wave, no-blast-through-the-crack,
+  cracked-plate map bounds, preview distinction, `=` unchanged, hash contract); making `boardPlates`
+  omit cracked plates reds THREE (preview distinction, drop-and-rewire, map bounds) — so the new
+  "one home" helper is genuinely pinned, not decorative; (3) the writer's critique of my brief
+  REPRODUCES: dropping `|#x:${cracked}` reds exactly ONE test, the contract assertion itself.
+  | retired=worktree /home/administrator/projects/BlasterMaster/worktrees/armored-plates · branch
+  feat/armored-plates (`-d`, proving merged; `git worktree list` shows only the main tree)
+  | note=WHAT LANDED: `+` is a map-authored plate that CRACKS on the first adjacent detonation and
+  falls on the second; `=` keeps its exact 1-hit behaviour and no existing map changed. State model
+  A: `Board.walls` = INTACT plates only, `Board.cracked` = damaged armoured plates (disjoint),
+  `Board.armored` = immutable map fact. `boardPlates()` is the ONE home for "every standing plate"
+  (bounds, shafts, view, the collapse scan) and `isArmoredPlate`/`isCrackedPlate` the ONE home for
+  the predicates. `collapseWalls` returns `{board, collapsed, cracked}` with `cracked` = NEWLY
+  cracked; the scene flinches/scorches a cracked plate and SHATTERS a falling one, and the hover
+  preview draws a hollow crack ghost versus a filled fall ghost. BULKHEAD (40 cells, 5 plates of
+  which 3 armoured, one deep cell) is the 11th map, and the 11th card's position (third row,
+  x 330/640/950, bottom 606 below the BACK panel at 672) is PINNED by a layout test, not assumed.
+  THE DISPATCHER'S BRIEF WAS WRONG on one point, recorded rather than smoothed over: I called the
+  cracked set entering `hashBoard` "the correctness heart", claiming a cracked position would
+  otherwise hash like an intact one and the repeat guard would conflate them. That is FALSE under
+  this very model — cracking removes the plate from `walls`, so `#w` already differs, and `cracked`
+  is derivable as `armored \ walls \ cells`. The writer proved it with its pin-3 injection and I
+  reproduced it with injection (A) above. `#x` was kept as policy/future-proofing with its contract
+  pinned honestly; the record now says that instead of claiming a save that was never needed.
+  KNOWN CHECKED REDUNDANCY: `Board.cracked` is derivable state, kept for cheap reads and direct
+  pins; deriving it would make the `#x` hash term unnecessary.
 
 LANDED | row=1 | sha=ab2b552 | verify=DISPATCHER'S OWN full loop on exactly this tree:
   typecheck exit 0 · lint exit 0 · 65 tests / 12 files · build exit 0. `scripts/gate.sh` exists
@@ -301,7 +315,7 @@ QUEUE | row=12 | THE EATER AGENT — OWNER'S IDEA, design stage, NOTHING DISPATC
   (3) COMBINE with two-hit plates: a housing that takes two detonations to crack, so releasing an
   eater costs real tempo. That prerequisite is its own slice (row=13, IN FLIGHT above); the eater
   is briefed off its landing.
-  STAGING: slice 1 = row=13 two-hit plates. slice 2 = explicit neutral owner + one eater + reveal +
+  STAGING: slice 1 = row=13 two-hit plates — LANDED as 871875a. slice 2 = the eater — NEXT.
   absorb + grow + neutral spread + the wipe-rule fix + hash/outcome/pins + one map. slice 3 = the
   whole-board tie, multiple eaters and the "it eats HERE next" prediction ghost.
   RULES SETTLED BY THE OWNER 2026-09-27 (owner's earlier words: "This introduces the possibility
@@ -353,6 +367,15 @@ TRAP | The subpath build is NOT the default build. `vite.config.ts` defaults `BL
   against the origin root and render a BLANK page under `https://apps.futuremagic.de/BlasterMaster/`.
   `docs/HOW_WE_DO_IT.md` had this backwards until 2026-09-27. RULE: only `npm run publish` builds
   for the host, and it refuses a build whose entry does not carry the subpath.
+
+TRAP | A CASCADE TERMINATES ONLY BECAUSE THE HASH REFLECTS THE STATE. An injection that lets state
+  GROW without bound changes `hashBoard` every wave, so the repeat guard in `applyMove` never fires
+  and the cascade never terminates. Measured 2026-09-27 during the armoured-plate pins: an injection
+  that made a cracked plate re-crack forever grew `cracked` unboundedly and OOM'd a vitest worker —
+  and a synchronous runaway loop cannot be interrupted by vitest's per-test timeout, so it must be
+  stopped by memory or by hand. RULE: a "growth" injection measures TERMINATION, not just its pin;
+  run it watching memory, never while a gate is running, and keep every new piece of board state in
+  the hash for exactly this reason.
 
 TRAP | A DUPLICATE SCAN'S SCOPE IS THE THING MOST LIKELY TO BE WRONG — measure the scanner
   against the HAZARD, never against itself. The row=6 audit parsed only named function
