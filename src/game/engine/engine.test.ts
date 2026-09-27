@@ -20,7 +20,7 @@ import {
 import { applyTurn, createGame } from './game';
 import { cellId } from './ids';
 import { applyMove } from './move';
-import type { Board, HasPlaced, MapDefinition, MoveResult, MoveSuccess, Owner, TurnResult, TurnSuccess } from './types';
+import type { Board, Game, HasPlaced, MapDefinition, MoveResult, MoveSuccess, Owner, TurnResult, TurnSuccess } from './types';
 
 const NEVER_PLACED: HasPlaced = { a: false, b: false };
 const BOTH_PLACED: HasPlaced = { a: true, b: true };
@@ -230,6 +230,49 @@ describe('cycles', () => {
     const result = requireOk(applyMove(board, 'a', cellId(0, 0), BOTH_PLACED));
     expect(occupiedCount(result.final, 'a')).toBe(occupiedCount(result.final, 'b'));
     expect(result.outcome).toEqual({ type: 'draw' });
+  });
+});
+
+describe('stalemate: the player to move who cannot move', () => {
+  // A 3x3 whose every cell 'a' owns at 1 token: no cell explodes at seed (a centre is degree
+  // 4), so 'a' can place on the centre without a cascade, and afterwards 'b' owns nothing and
+  // no cell is empty — the exact state the eater can create, built directly for the test.
+  function allOwnedGame(): Game {
+    const arena = map('stalemate', ['###', '###', '###']);
+    const board = createBoard(arena);
+    return {
+      mapId: arena.id,
+      board: seedBoard(
+        board,
+        boardCells(board).map((cell) => ({ id: cell.id, count: 1, owner: 'a' as const })),
+      ),
+      currentPlayer: 'a',
+      hasPlaced: { a: true, b: true },
+      outcome: { type: 'ongoing' },
+    };
+  }
+
+  it('is genuinely stuck (the premise): the other player has no legal move', () => {
+    expect(legalMoves(allOwnedGame().board, 'b')).toHaveLength(0);
+  });
+
+  it('awards the game to the opponent, by wipe, the moment the state exists', () => {
+    const result = requireOk(applyTurn(allOwnedGame(), cellId(1, 1)));
+    expect(result.waves).toHaveLength(0);
+    expect(result.game.outcome).toEqual({ type: 'win', player: 'a', cause: 'wipe' });
+    expect(result.game.currentPlayer).toBe('a');
+  });
+
+  it('does NOT award it before the stuck player has ever placed (the opening-bounce guard)', () => {
+    // Same stuck board, but 'b' has never placed: the wipe rule's opening-bounce protection
+    // applies here too, so one cascade cannot end a game on a map small enough to be swallowed.
+    const stuck = allOwnedGame();
+    const result = requireOk(
+      applyTurn({ ...stuck, hasPlaced: { a: true, b: false } }, cellId(1, 1)),
+    );
+    expect(legalMoves(result.game.board, 'b')).toHaveLength(0);
+    expect(result.game.outcome).toEqual({ type: 'ongoing' });
+    expect(result.game.currentPlayer).toBe('b');
   });
 });
 
