@@ -20,6 +20,7 @@ is written here; this file is the authority for what is happening right now.
 | `IN-FLIGHT` | a writer: row, actor, worktree, branch, base, state, and the full scope |
 | `LANDED` | a verified landing: row, sha, **the dispatcher's own verification numbers**, what was retired, the docs amended |
 | `QUEUE` | requests and known debt not yet dispatched (with a reserved row number) |
+| `SPEC` | a design SETTLED with the owner that a dispatched slice will build (rules in it are requirements, not options) |
 | `TRAP` | a mistake that actually happened, and the rule that prevents it |
 | `GUARD` | a mechanism protecting the process, and how to verify the mechanism itself |
 | `RECOVERY` | where a successor finds everything it needs |
@@ -34,7 +35,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: 871875ad4d3f348c38effecefbc641506d644167 · 2026-09-27T17:17Z
+reconciled: 8f51f8b91de3f7d8e197f334f412208a9361e523 · 2026-09-27T17:2xZ
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -72,6 +73,26 @@ LANDED | row=13 | sha=871875a | verify=DISPATCHER'S OWN: (1) my own `npm run gat
   pinned honestly; the record now says that instead of claiming a save that was never needed.
   KNOWN CHECKED REDUNDANCY: `Board.cracked` is derivable state, kept for cheap reads and direct
   pins; deriving it would make the `#x` hash term unnecessary.
+
+IN-FLIGHT | row=14 | writer=session-90cb307d-248b-4676-8515-0152e32f0dd8
+  | worktree=/home/administrator/projects/BlasterMaster/worktrees/eater | branch=feat/eater
+  | base=8f51f8b | dispatched_by=session-1e324382
+  | state=dispatched 2026-09-27T17:2xZ, deps installed, no commit yet
+  | note=THE EATER, built against the settled SPEC in row=12 (every rule there is a requirement).
+  TWO GATED COMMITS, in order: 2a = the infrastructure with no actor (the third ownership state
+  `Owner = PlayerId | 'neutral'`; the DIAGONAL DATA CHANGE — populate `diagonals` for every cell and
+  gate its USE on `deep`, because a plain cell carries none today, board.ts:117/:77, and the eater's
+  threshold is the DEEP degree of whatever cell it stands on; the WIPE FIX so a neutral flood can
+  never hand the mover a win, `move.ts:133`; and every new piece of state in `hashBoard`). 2b = the
+  actor (a new housing glyph that cracks then reveals an eater; the eater record with position+hoard,
+  its cell neutral EVEN AT 0 so it can never be fed; deterministic eat-the-biggest-ortho-neighbour
+  with a clockwise tie-break; one-shot detonation at the deep degree; surplus left as neutral; inert
+  but blast-clearable neutrals; the draw when no cell is player-owned; reveal order for multiples;
+  a legible "eats HERE next" prediction ghost; and a 12th map — the title grid handles exactly 4x3,
+  which the writer must verify rather than assume). Pins cover every rule in row=12 plus "the
+  existing 83 tests stay green". Known dispatcher debt carried into this slice: the brief says a
+  growth injection must be run watching memory, because state that grows unboundedly changes the
+  hash every wave and the cascade never terminates (TRAP above).
 
 LANDED | row=1 | sha=ab2b552 | verify=DISPATCHER'S OWN full loop on exactly this tree:
   typecheck exit 0 · lint exit 0 · 65 tests / 12 files · build exit 0. `scripts/gate.sh` exists
@@ -240,7 +261,7 @@ QUEUE | row=9 | FOLD THE SMALL `TitleScene.ts` DUPLICATION the tripwire can see 
   method and reuse it. Reserved; NOT ordered; it TOUCHES UI code, so it wants the owner's eyes on
   the panels afterwards like any TitleScene change.
 
-QUEUE | row=12 | THE EATER AGENT — OWNER'S IDEA, design stage, NOTHING DISPATCHED. Verbatim:
+SPEC | row=12 | THE EATER AGENT — OWNER'S DESIGN, rules settled, dispatched as row=14. Verbatim:
   "How about cracking a wall reveals an eater agent. The eaters turn is right after the turn of the
   player who destroyed the wall. It moves to the cell which has the most tokens next to it (not
   diagonally) and consumes the tokens. Once it has enough tokens to explode, it will (like a deep
