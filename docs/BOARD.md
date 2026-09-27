@@ -36,7 +36,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: b102c38a9cd5b02c4a6f3d96046d8055548b3ca4 · 2026-09-27T17:56Z
+reconciled: 676caa41a95b88a74e3f31a87593db2b3423e5d3 · 2026-09-27T18:1xZ
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -122,6 +122,23 @@ LANDED | row=14 | sha=ea3018d (2a `4463842` + 2b `ea3018d`, rebased onto `df51c9
   AI is blind to eaters (QUEUE row=15); and a mixed wave whose neutral and owned piles fire together
   resolves `spreader` to neutral so no wipe is awarded there — a deliberate fail-safe; per-token
   colours stay exact.
+
+IN-FLIGHT | row=18 | writer=session-1e80f305-ac1f-4f5a-ab39-126ec9dbdef6
+  | worktree=/home/administrator/projects/BlasterMaster/worktrees/every-wall | branch=feat/every-wall
+  | base=676caa4 | dispatched_by=session-1e324382
+  | state=dispatched 2026-09-27T18:1xZ, deps installed, no commit yet
+  | note=BUILDS SPEC row=17 (every wall hides an eater). Scope: every PLATE THAT FALLS reveals an
+  eater on the square it fell to, mastered by the mover, in reveal order — a cracked `+` has not
+  fallen and reveals nothing; the `@` glyph, `MapDefinition.housing`, `Board.housing` and the reveal
+  gate are DELETED (there is no per-map fact left to advertise, which is what fixes the
+  discoverability defect at its root); NEST's two `@` become `+` so its two-hit timing survives;
+  the wall missions' text is corrected in the SAME landing because AIRLOCK's coach literally
+  promised "THE PLATE FALLS EMPTY"; pinning that a cascade dropping several plates reveals several
+  eaters, in fall order, and that the phase still terminates (BULKHEAD and THE SEAM carry five
+  plates each); and signposting becomes a RULE (map card + mission text + an optional plate cue).
+  Star thresholds are deliberately NOT touched: their recalibration is row=8's measurement, not a
+  number to guess at. The writer is warned about the `git checkout HEAD --` trap (TRAP above), since
+  the slice is uncommitted while it injects.
 
 LANDED | row=1 | sha=ab2b552 | verify=DISPATCHER'S OWN full loop on exactly this tree:
   typecheck exit 0 · lint exit 0 · 65 tests / 12 files · build exit 0. `scripts/gate.sh` exists
@@ -395,21 +412,24 @@ SPEC | row=12 | THE EATER AGENT — OWNER'S DESIGN, rules settled, dispatched as
   `hashBoard` (the dispatcher's alternative, clockwise-from-north order derived from the board,
   was rejected in favour of the player-intuitive one).
 
-QUEUE | row=17 | HOUSINGS ARE INDISTINGUISHABLE FROM ARMOURED PLATES — found when the owner
-  reported "I destroyed a wall and did not see any eater spawn" (2026-09-27). The mechanic is
-  intact: only a `@` HOUSING reveals an eater, housings exist on exactly ONE map (NEST, two of
-  them), and a housing needs TWO detonations. But nothing tells the player that:
-  (a) the theme has `wall`, `wallArmor` and `wallCracked` and NO housing look, and BoardView never
-      mentions `housing` — so an unbroken housing is drawn IDENTICALLY to an empty armoured plate;
-  (b) a housing IS an armoured plate (`maps.ts` pushes housings into `armored` AND `housing`), so
-      NEST's map card reads `· 2 ARMORED` — the same word BULKHEAD uses for its three EMPTY
-      two-hit plates — which actively teaches the wrong expectation;
-  (c) the card has no `HOUSING` line at all.
-  FIX SKETCH (small, view + theme + card): a distinct housing treatment that survives the
-  owner/hover/crack/near-critical hues the way the deep corner cuts do (a hatch pattern or a
-  third hue, not only a colour), a `· N HOUSING(S)` line on the map card, and the same distinction
-  in the title schematic. Reserved; NOT ordered. The owner's words and the reproduction are in the
-  report that follows.
+SPEC | row=17 | EVERY WALL HIDES AN EATER — OWNER'S RULING, and it SUPERSEDES the `@` housing opt-in.
+  Verbatim: "Just make it so that Every wall hides an eater. Deterministic and plannable, keeps this
+  from becoming a game of luck." So the housing DISTINCTION dies: every plate that FALLS reveals an
+  eater on the square it fell to (a cracked `+` has not fallen and reveals nothing), mastered by the
+  player whose turn it is, activating in reveal order — and with it go the `housing` map fact, the
+  `@` glyph and the reveal gate. That also kills the discoverability defect at its root: there is
+  nothing left to distinguish, so nothing left to fail to see.
+  CONSEQUENCES THIS LANDING MUST HANDLE: (1) the campaign wall missions' text says plates fall EMPTY
+  — AIRLOCK's coach verbatim is "BLOW THE FRAME. THE PLATE FALLS EMPTY." plus BOLTS and THE SEAM —
+  and that becomes FALSE, so their dossier/coach must describe the eater; (2) BULKHEAD and THE SEAM
+  each carry FIVE plates and can therefore release five eaters in one phase (NEST keeps two, as `+`:
+  its two-hit timing comes from durability, not from a housing glyph); (3) the star gates
+  (`swiftMoves`/`cascadeWaves`) for the wall missions were tuned with NO eaters and are now
+  UNPROVEN — that is row=8's measurement, never a number to guess at now; (4) signposting is now a
+  RULE rather than a map fact, so a player must be able to learn, before breaking a plate, that
+  breaking it releases an eater (map card, mission text, and a cue on the plate itself).
+  This SUPERSEDES the discoverability queue line it replaces (housing-vs-armoured visuals): with
+  every wall alike, there is no per-map fact to advertise — only the rule.
 
 CLOSED | row=15 | TEACH THE AI ABOUT EATERS — the owner decided AGAINST it, verbatim: "I think its
   too complicated to do this right, so... let the AI ignore it and stay stable." The AI stays
