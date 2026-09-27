@@ -1,5 +1,6 @@
 import { hashBoard, occupiedCount, replaceCell } from './board';
 import { stepCascade } from './cascade';
+import { runEaterPhase } from './eater';
 import { opponentOf } from './ids';
 import type {
   Board,
@@ -62,7 +63,7 @@ export function applyMove(
   for (;;) {
     const step = stepCascade(current, player, player, seen);
     if (step.kind === 'stable') {
-      return finish({ type: 'ongoing' });
+      break;
     }
 
     waves.push(step.wave);
@@ -81,7 +82,25 @@ export function applyMove(
     }
 
     if (step.repeated) {
-      return finish(nextHasPlaced[opponent] ? cycleOutcome(current) : { type: 'ongoing' });
+      if (nextHasPlaced[opponent]) {
+        return finish(cycleOutcome(current));
+      }
+      // The cascade stopped on a repeat, but the TURN is not over: the game goes on
+      // (the opponent has never placed), so the eater slot still belongs to it.
+      break;
     }
   }
+
+  // THE EATER PHASE: the revealer's slot, immediately after their own cascade.
+  const phase = runEaterPhase(current, player);
+  current = phase.board;
+  waves.push(...phase.waves);
+  eaters.push(...phase.eaters);
+
+  // THE TIE: if the phase left NO square owned by either player, nobody can win it
+  // and the game is a draw. This is also the safety valve for an all-neutral board.
+  if (occupiedCount(current, 'a') === 0 && occupiedCount(current, 'b') === 0) {
+    return finish({ type: 'draw' });
+  }
+  return finish({ type: 'ongoing' });
 }

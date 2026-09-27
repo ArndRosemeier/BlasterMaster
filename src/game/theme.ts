@@ -43,6 +43,7 @@ export const theme = {
     deep: 0x9a6ad6,
     /** The eater itself: nothing on the board shares this hue. */
     eater: 0xbfd36a,
+    eaterHex: '#bfd36a',
     shaft: 0x070809,
     hudText: '#f3ead8',
     hudMuted: '#9a8f7c',

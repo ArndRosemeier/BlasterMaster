@@ -5,7 +5,7 @@ import { applyTurn, createGame } from './engine/game';
 import { cellId } from './engine/ids';
 import { legalMoves, occupiedCount } from './engine/board';
 import type { TurnResult, TurnSuccess } from './engine/types';
-import { AIRLOCK, BOLTS, BULKHEAD, FUNNEL, IRREGULAR, MAP_LIST, RECT_5, RING, SEAM, SPARK, TWIN_STACKS, assertShippedMaps, cellsFromRows, requireMap, tilesFromRows } from './maps';
+import { AIRLOCK, BOLTS, BULKHEAD, FUNNEL, IRREGULAR, MAP_LIST, NEST, RECT_5, RING, SEAM, SPARK, TWIN_STACKS, assertShippedMaps, cellsFromRows, requireMap, tilesFromRows } from './maps';
 
 describe('shipped maps', () => {
   it('build valid graphs with expected degrees', () => {
@@ -36,7 +36,7 @@ describe('shipped maps', () => {
     expect(createBoard(BOLTS).walls).toEqual([cellId(3, 1), cellId(7, 1)]);
     expect(createBoard(SEAM).walls).toHaveLength(5);
 
-    expect(MAP_LIST).toHaveLength(11);
+    expect(MAP_LIST).toHaveLength(12);
     const bulkhead = createBoard(BULKHEAD);
     expect(bulkhead.walls).toEqual([
       cellId(3, 0),
@@ -47,6 +47,29 @@ describe('shipped maps', () => {
     ]);
     expect(bulkhead.armored).toEqual([cellId(4, 1), cellId(4, 2), cellId(4, 3)]);
     expect(bulkhead.cracked).toEqual([]);
+    expect(bulkhead.housing).toEqual([]);
+
+    // NEST is the 12th map and the only one with housings: two armored plates that
+    // reveal an eater when they fall, and no eaters until then.
+    const nest = createBoard(NEST);
+    expect(nest.walls).toEqual([cellId(3, 0), cellId(3, 4)]);
+    expect(nest.armored).toEqual([cellId(3, 0), cellId(3, 4)]);
+    expect(nest.housing).toEqual([cellId(3, 0), cellId(3, 4)]);
+    expect(nest.eaters).toEqual([]);
+    expect(Object.keys(nest.cells)).toHaveLength(33);
+    // The square a housing REVEALS into is an edge square: three ortho neighbours
+    // and two diagonal ones, so an eater standing there fires at a DEEP degree of
+    // five (the map's whole threat). Pinned on those neighbours, because the square
+    // itself is a plate, not a cell, until it falls.
+    for (const id of [
+      cellId(2, 0),
+      cellId(4, 0),
+      cellId(3, 1),
+      cellId(2, 1),
+      cellId(4, 1),
+    ]) {
+      expect(nest.cells[id]).toBeDefined();
+    }
   });
 
   it('parses occupancy rows and rejects unknown map ids', () => {
@@ -59,6 +82,12 @@ describe('shipped maps', () => {
     expect(tilesFromRows(['#+#']).cells).toEqual([{ x: 0, y: 0 }, { x: 2, y: 0 }]);
     expect(tilesFromRows(['#+#']).walls).toEqual([{ x: 1, y: 0 }]);
     expect(tilesFromRows(['#+#']).armored).toEqual([{ x: 1, y: 0 }]);
+    expect(tilesFromRows(['#+#']).housing).toEqual([]);
+    // `@` is an armored plate AND a housing: both facts, one tile.
+    expect(tilesFromRows(['#@#']).walls).toEqual([{ x: 1, y: 0 }]);
+    expect(tilesFromRows(['#@#']).armored).toEqual([{ x: 1, y: 0 }]);
+    expect(tilesFromRows(['#@#']).housing).toEqual([{ x: 1, y: 0 }]);
+    expect(() => cellsFromRows(['#@#'])).toThrow(/wall glyphs/);
     expect(() => cellsFromRows(['#+#'])).toThrow(/wall glyphs/);
     expect(() => requireMap('nope')).toThrow(/Unknown map/);
   });

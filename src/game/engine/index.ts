@@ -31,6 +31,7 @@ export {
   tokenCount,
 } from './board';
 export { stepCascade } from './cascade';
+export { activateEater, nextMeal, runEaterPhase } from './eater';
 export { createGame, applyTurn } from './game';
 export { cellId, opponentOf, parseCellId } from './ids';
 export { applyMove } from './move';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { seedBoard } from '../engine/board';
+import { collapseWalls, createBoard, revealEaters, seedBoard } from '../engine/board';
 import { applyTurn, createGame } from '../engine/game';
 import { cellId } from '../engine/ids';
 import { applyMove } from '../engine/move';
@@ -81,5 +81,46 @@ describe('previewPlacement', () => {
     }
     expect(drop.collapsed).toEqual([cellId(1, 1)]);
     expect(drop.cracked).toEqual([]);
+  });
+
+  it('shows where an eater will eat next, how much, and whether it ends there', () => {
+    // Open the housing with the engine's own collapse + reveal, then build a game
+    // position whose only mover is the eater's master.
+    const nest = mapFromRows('preview-eater', 'preview-eater', ['#####', '##@##', '#####']);
+    const opened = collapseWalls(createBoard(nest), [cellId(1, 1)]);
+    const fallen = collapseWalls(opened.board, [cellId(1, 1)]);
+    const board = revealEaters(fallen.board, fallen.collapsed, 'a');
+    const game: Game = {
+      mapId: 'preview-eater',
+      board: seedBoard(board, [{ id: cellId(2, 0), count: 2, owner: 'a' }]),
+      currentPlayer: 'a',
+      hasPlaced: { a: false, b: false },
+      outcome: { type: 'ongoing' },
+    };
+
+    const meal = previewPlacement(game, cellId(0, 0));
+    if (meal === null) {
+      throw new Error('legal preview failed');
+    }
+    expect(meal.eaterMoves).toEqual([
+      { from: cellId(2, 1), to: cellId(2, 0), ate: 2, detonated: false },
+    ]);
+
+    // Hungry with nothing beside it: it stays.
+    const idle = previewPlacement({ ...game, board }, cellId(0, 0));
+    expect(idle?.eaterMoves).toEqual([
+      { from: cellId(2, 1), to: cellId(2, 1), ate: 0, detonated: false },
+    ]);
+
+    // Armed to the deep degree of its square (8): the bite ends it, and the preview
+    // says so instead of promising a second turn.
+    const armed: Game = {
+      ...game,
+      board: seedBoard(board, [{ id: cellId(2, 1), count: 8, owner: 'neutral' }]),
+    };
+    const boom = previewPlacement(armed, cellId(0, 0));
+    expect(boom?.eaterMoves).toEqual([
+      { from: cellId(2, 1), to: cellId(2, 1), ate: 0, detonated: true },
+    ]);
   });
 });

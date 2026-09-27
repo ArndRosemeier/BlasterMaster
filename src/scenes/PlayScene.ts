@@ -9,7 +9,7 @@ import { missionById, nextMission, type Mission } from '../game/ops/campaign';
 import { browserStore, recordStars } from '../game/ops/progress';
 import { requirePlaySceneData, type PlaySceneData } from '../game/ops/session';
 import { addTurn, awardStars, emptyStats, type MatchStats, type StarAward } from '../game/ops/stats';
-import { CANVAS_HEIGHT, CANVAS_WIDTH, playerTheme, theme } from '../game/theme';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, ownerLook, playerTheme, theme } from '../game/theme';
 import { previewPlacement } from '../game/view/preview';
 import { BoardView } from './play/BoardView';
 import { flyToken } from './play/fx';
@@ -213,19 +213,33 @@ export class PlayScene extends Phaser.Scene {
       playSound('wave', index);
       await this.playWave(wave, index);
     }
+    // An eater's move carries no wave: it leaves and arrives between waves, so the
+    // square it took is what the player needs to see.
+    for (const step of result.eaters) {
+      if (step.to !== step.from) {
+        this.boardView.pulseCell(step.to);
+      }
+    }
   }
 
   private async playWave(wave: WaveStep, index: number): Promise<void> {
-    const color = playerTheme(this.match.currentPlayer).fill;
+    // The wave names its own colour: a neutral flood (and an eater's detonation)
+    // is nobody's, so it must never be painted with the mover's seat colour.
+    const color = ownerLook(wave.spreader).fill;
     this.boardView.flash(wave.exploded);
-    this.boardView.blast(wave.exploded, color, 1 + index * 0.28);
+    this.boardView.blast(wave.exploded, color, 1 + index * 0.28, wave.eaterDetonation);
     this.cameras.main.shake(100 + index * 28, 0.0038 + index * 0.0016);
     const flights = wave.transfers.map((transfer) => {
       const from = this.boardView.worldCenter(transfer.from);
       const to = this.boardView.worldCenter(transfer.to);
-      return flyToken(this, from, to, this.match.currentPlayer, 260 + index * 20);
+      return flyToken(this, from, to, transfer.owner, 260 + index * 20);
     });
     await Promise.all(flights);
+    if (wave.eaterDetonation) {
+      playSound('collapse');
+      this.flashBanner('EATER DETONATES');
+      await this.wait(200);
+    }
     if (wave.collapsed.length > 0) {
       playSound('collapse');
       this.boardView.crackWalls(wave.collapsed);

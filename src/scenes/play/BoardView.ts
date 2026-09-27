@@ -5,13 +5,14 @@ import {
   getCell,
   isArmoredPlate,
   isCrackedPlate,
+  isEaterCell,
   isNearCritical,
   mapBounds,
   threshold,
 } from '../../game/engine/board';
 import { parseCellId } from '../../game/engine/ids';
 import type { Board, CellId, CellState, PlayerId } from '../../game/engine/types';
-import { theme } from '../../game/theme';
+import { NEUTRAL_LOOK, theme } from '../../game/theme';
 import {
   cellCenter,
   layoutBoard,
@@ -61,6 +62,12 @@ type PlateVisual = {
   readonly seam: Phaser.GameObjects.Graphics;
 };
 
+/** The eater itself: a body carrying its hoard count, on its own square. */
+type EaterVisual = {
+  readonly root: Phaser.GameObjects.Container;
+  readonly count: Phaser.GameObjects.Text;
+};
+
 /** How a plate is painted: its fill, stroke and how loudly the seam shows. */
 type PlateStyle = {
   readonly fill: number;
@@ -79,6 +86,7 @@ export class BoardView {
   private board: Board;
   private readonly cells = new Map<CellId, CellVisual>();
   private readonly plates = new Map<CellId, PlateVisual>();
+  private readonly eaters = new Map<CellId, EaterVisual>();
   private readonly layer: Phaser.GameObjects.Container;
   private readonly ghostLayer: Phaser.GameObjects.Container;
   private legal = new Set<CellId>();
@@ -107,6 +115,7 @@ export class BoardView {
     for (const plateId of boardPlates(board)) {
       this.plates.set(plateId, this.createPlate(plateId));
     }
+    this.syncEaters(board);
     this.spinEvent = scene.time.addEvent({
       delay: 16,
       loop: true,
@@ -154,6 +163,7 @@ export class BoardView {
       }
       this.paintCell(this.requireVisual(cell.id), cell);
     }
+    this.syncEaters(board);
   }
 
   public flash(ids: readonly CellId[]): void {
@@ -162,10 +172,11 @@ export class BoardView {
     }
   }
 
-  public blast(ids: readonly CellId[], color: number, intensity: number): void {
+  public blast(ids: readonly CellId[], color: number, intensity: number, forceDeep = false): void {
     for (const id of ids) {
       const pos = this.worldCenter(id);
-      spawnBlast(this.scene, pos.x, pos.y, color, intensity, this.board.cells[id]?.deep === true);
+      const deep = forceDeep || this.board.cells[id]?.deep === true;
+      spawnBlast(this.scene, pos.x, pos.y, color, intensity, deep);
     }
   }
 
@@ -264,13 +275,56 @@ export class BoardView {
     this.ghostLayer.add(leftover);
     this.ghosts.push(leftover);
     for (const wallId of preview.collapsed) {
-      const pos = this.plateCenter(wallId);
+      const pos = this.squareCenter(wallId);
       this.drawPlateGhost(pos.x, pos.y, true);
     }
     for (const wallId of preview.cracked) {
-      const pos = this.plateCenter(wallId);
+      const pos = this.squareCenter(wallId);
       this.drawPlateGhost(pos.x, pos.y, false);
     }
+    for (const move of preview.eaterMoves) {
+      this.drawEatGhost(move);
+    }
+  }
+
+  /**
+   * Where an eater will eat NEXT: a neutral line to the square it takes, a ring on
+   * that square, and the size of the bite. A ring drawn in the warning hue means
+   * the bite is the eater's LAST — it detonates where it lands.
+   */
+  private drawEatGhost(move: PlacementPreview['eaterMoves'][number]): void {
+    const from = this.squareCenter(move.from);
+    const to = this.squareCenter(move.to);
+    if (move.to !== move.from) {
+      const stroke = this.scene.add.graphics();
+      stroke.lineStyle(3, NEUTRAL_LOOK.fill, 0.45);
+      stroke.lineBetween(from.x, from.y, to.x, to.y);
+      this.ghostLayer.add(stroke);
+      this.ghosts.push(stroke);
+    }
+    const ring = this.scene.add.circle(to.x, to.y, this.layout.cellSize * 0.3, 0, 0);
+    ring.setStrokeStyle(
+      move.detonated ? 4 : 2,
+      move.detonated ? theme.colors.warning : NEUTRAL_LOOK.fill,
+      0.95,
+    );
+    const label = this.scene.add
+      .text(to.x, to.y + this.layout.cellSize * 0.62, this.eatLabel(move), {
+        fontFamily: theme.fonts.mono,
+        fontSize: '12px',
+        color: move.detonated ? theme.colors.hudText : NEUTRAL_LOOK.hex,
+      })
+      .setOrigin(0.5);
+    this.ghostLayer.add([ring, label]);
+    this.ghosts.push(ring, label);
+  }
+
+  /** What the eat ghost says: the bite, or that the eater has nothing to eat. */
+  private eatLabel(move: PlacementPreview['eaterMoves'][number]): string {
+    if (move.ate === 0) {
+      return 'EATER HOLDS';
+    }
+    return move.detonated ? `EATER EATS ${move.ate} · BOOM` : `EATER EATS ${move.ate}`;
   }
 
   /**
@@ -331,8 +385,13 @@ export class BoardView {
     }
   }
 
-  private plateCenter(id: CellId): { x: number; y: number } {
-    const existing = this.plates.get(id);
+  /**
+   * A square's screen centre — a plate's, a cell's, or one the cascade has not
+   * drawn yet. ONE home, because a plate ghost, an eater and the hover preview all
+   * need the same answer for a square that may have no visual of its own.
+   */
+  private squareCenter(id: CellId): { x: number; y: number } {
+    const existing = this.plates.get(id) ?? this.cells.get(id);
     if (existing !== undefined) {
       return { x: existing.root.x, y: existing.root.y };
     }
@@ -341,7 +400,7 @@ export class BoardView {
   }
 
   private createPlate(id: CellId): PlateVisual {
-    const pos = this.plateCenter(id);
+    const pos = this.squareCenter(id);
     const size = this.layout.cellSize * 0.86;
     const base = this.scene.add.rectangle(0, 0, size, size, theme.colors.wall, 1);
     const seam = this.scene.add.graphics();
@@ -486,7 +545,8 @@ export class BoardView {
     const scale = coreScale(cell.deep);
     const radius = this.layout.cellSize * scale.radius;
     const size = this.layout.cellSize * scale.size;
-    const nearCritical = isNearCritical(cell);
+    const held = isEaterCell(this.board, cell.id);
+    const nearCritical = !held && isNearCritical(cell);
     const offsets = orbOffsets(cell.count, radius);
     visual.cores.forEach((core, index) => {
       const slot = offsets[index];
@@ -506,7 +566,11 @@ export class BoardView {
     // The pips carry the count up to the cell's own rule threshold, and the orbs
     // carry it up to ORB_SLOTS; past whichever is larger, the number must be drawn.
     const carried = Math.max(ORB_SLOTS, threshold(cell));
-    if (cell.count > carried) {
+    if (held) {
+      // The eater's own body carries the hoard; a second number would be noise.
+      visual.countText.setText('');
+      visual.countText.setAlpha(0);
+    } else if (cell.count > carried) {
       const textAt = this.layout.cellSize * 0.32;
       visual.countText.setText(String(cell.count));
       visual.countText.setPosition(cell.deep ? 0 : textAt, cell.deep ? 0 : -textAt);
@@ -553,6 +617,47 @@ export class BoardView {
     }
   }
 
+  /**
+   * The eaters on the board, one body per eater, carrying its hoard count. It is
+   * derived from `board.eaters` every time the board changes, so a move, a reveal
+   * and a death all read the same way.
+   */
+  private syncEaters(board: Board): void {
+    const living = new Set(board.eaters.map((eater) => eater.at));
+    for (const [id, visual] of [...this.eaters]) {
+      if (!living.has(id)) {
+        visual.root.destroy(true);
+        this.eaters.delete(id);
+      }
+    }
+    for (const eater of board.eaters) {
+      let visual = this.eaters.get(eater.at);
+      if (visual === undefined) {
+        visual = this.createEaterView(eater.at);
+        this.eaters.set(eater.at, visual);
+      }
+      visual.count.setText(String(getCell(board, eater.at).count));
+    }
+  }
+
+  private createEaterView(at: CellId): EaterVisual {
+    const pos = this.squareCenter(at);
+    const size = this.layout.cellSize;
+    const body = this.scene.add.circle(0, 0, size * 0.3, 0x101408, 0.95);
+    body.setStrokeStyle(3, theme.colors.eater, 1);
+    const maw = this.scene.add.circle(0, 0, size * 0.12, theme.colors.eater, 0.9);
+    const count = this.scene.add
+      .text(0, size * 0.42, '', {
+        fontFamily: theme.fonts.mono,
+        fontSize: `${Math.max(11, Math.floor(size * 0.2))}px`,
+        color: theme.colors.eaterHex,
+      })
+      .setOrigin(0.5);
+    const root = this.scene.add.container(pos.x, pos.y, [body, maw, count]);
+    this.layer.add(root);
+    return { root, count };
+  }
+
   private paintSockets(visual: CellVisual, cell: CellState): void {
     visual.sockets.forEach((socket, index) => {
       socket.arc.setPosition(socket.ox, socket.oy);
@@ -567,6 +672,12 @@ export class BoardView {
     visual.rim.setFillStyle(legal ? accent.fill : theme.colors.plateEdge, legal ? 0.55 : 1);
     if (hovering && legal) {
       visual.plate.setFillStyle(theme.colors.plateHot, 1);
+      return;
+    }
+    if (isEaterCell(this.board, cell.id)) {
+      // The eater's square is its own colour, so the board reads where it stands.
+      visual.plate.setFillStyle(0x1b2416, 1);
+      visual.plate.setStrokeStyle(3, theme.colors.eater, 0.9);
       return;
     }
     if (isNearCritical(cell)) {

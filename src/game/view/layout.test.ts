@@ -73,6 +73,27 @@ describe('cardGrid', () => {
     expect(placements[8]).toEqual({ x: 330, y: 542 });
     expect(placements[10]).toEqual({ x: 950, y: 542 });
   });
+
+  it('keeps a twelve-map card on screen as a FULL 4x3 grid', () => {
+    // The grid handles exactly twelve: the third row is no longer short, so the
+    // last card starts a fourth column at x=1105 instead of being centered.
+    const placements = cardGrid(12, 4, {
+      firstX: 175,
+      topY: 258,
+      pitchX: 310,
+      pitchY: 142,
+      centerX: CANVAS_WIDTH / 2,
+    });
+    expect(placements).toHaveLength(12);
+    for (const place of placements) {
+      expect(place.x - 148).toBeGreaterThanOrEqual(0);
+      expect(place.x + 148).toBeLessThanOrEqual(CANVAS_WIDTH);
+      expect(place.y + 64).toBeLessThan(650);
+    }
+    expect(placements[8]).toEqual({ x: 175, y: 542 });
+    expect(placements[10]).toEqual({ x: 795, y: 542 });
+    expect(placements[11]).toEqual({ x: 1105, y: 542 });
+  });
 });
 
 describe('reachPips', () => {
