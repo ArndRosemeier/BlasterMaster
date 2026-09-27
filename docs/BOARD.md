@@ -35,7 +35,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: 8f51f8b91de3f7d8e197f334f412208a9361e523 · 2026-09-27T17:2xZ
+reconciled: ea3018d2cfaa8fd8f29ad07cbbb3c6ee7eebaa33 · 2026-09-27T17:44Z
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -74,25 +74,53 @@ LANDED | row=13 | sha=871875a | verify=DISPATCHER'S OWN: (1) my own `npm run gat
   KNOWN CHECKED REDUNDANCY: `Board.cracked` is derivable state, kept for cheap reads and direct
   pins; deriving it would make the `#x` hash term unnecessary.
 
-IN-FLIGHT | row=14 | writer=session-90cb307d-248b-4676-8515-0152e32f0dd8
-  | worktree=/home/administrator/projects/BlasterMaster/worktrees/eater | branch=feat/eater
-  | base=8f51f8b | dispatched_by=session-1e324382
-  | state=dispatched 2026-09-27T17:2xZ, deps installed, no commit yet
-  | note=THE EATER, built against the settled SPEC in row=12 (every rule there is a requirement).
-  TWO GATED COMMITS, in order: 2a = the infrastructure with no actor (the third ownership state
-  `Owner = PlayerId | 'neutral'`; the DIAGONAL DATA CHANGE — populate `diagonals` for every cell and
-  gate its USE on `deep`, because a plain cell carries none today, board.ts:117/:77, and the eater's
-  threshold is the DEEP degree of whatever cell it stands on; the WIPE FIX so a neutral flood can
-  never hand the mover a win, `move.ts:133`; and every new piece of state in `hashBoard`). 2b = the
-  actor (a new housing glyph that cracks then reveals an eater; the eater record with position+hoard,
-  its cell neutral EVEN AT 0 so it can never be fed; deterministic eat-the-biggest-ortho-neighbour
-  with a clockwise tie-break; one-shot detonation at the deep degree; surplus left as neutral; inert
-  but blast-clearable neutrals; the draw when no cell is player-owned; reveal order for multiples;
-  a legible "eats HERE next" prediction ghost; and a 12th map — the title grid handles exactly 4x3,
-  which the writer must verify rather than assume). Pins cover every rule in row=12 plus "the
-  existing 83 tests stay green". Known dispatcher debt carried into this slice: the brief says a
-  growth injection must be run watching memory, because state that grows unboundedly changes the
-  hash every wave and the cascade never terminates (TRAP above).
+LANDED | row=14 | sha=ea3018d (2a `4463842` + 2b `ea3018d`, rebased onto `df51c9d`)
+  | verify=DISPATCHER'S OWN: (1) my own `npm run gate` on the rebased tree and again on the merged
+  main tip → exit 0 FULL GREEN, typecheck 0 · lint 0 · **112 tests / 15 files** · build 0 (logs
+  .gate-logs/gate-20260927T174225Z-3990995.log and …T174401Z-3995102.log); (2) MY OWN four
+  injections, all reverted, tree clean at ea3018d: `deepDegree` dropping its diagonals reds SEVEN+
+  tests across three suites (the plain-cell diagonal pins, the AI's deep-cell valuation, the eater's
+  own pins), which PROVES the "one deep-degree source" claim instead of asserting it; keeping the
+  eater after its detonation reds the one-shot pin plus the prediction ghost; emptying a neutral
+  surplus instead of leaving it neutral reds the surplus pin AND the random-play soak; removing the
+  spreader guard reds exactly "never hands the mover a wipe when it is the flood that empties the
+  opponent"; (3) MY OWN reachability soak for the gap the writer flagged — 300 random NEST games:
+  **frozen=0**, wins=289, draws=11, none stuck at the cap.
+  | retired=worktree /home/administrator/projects/BlasterMaster/worktrees/eater · branch feat/eater
+  (`-d`, merged; `git worktree list` shows only the main tree) · writer session 90cb307d finished ·
+  process audit after the turn: suites=none browsers=none
+  | note=WHAT LANDED: `@` is a housing (two detonations, like `+`) that reveals an EATER on the square
+  it falls on. An eater is a board-level actor whose SQUARE holds its hoard and is `owner: 'neutral'`
+  EVEN AT 0, so it can never be fed. Each activation it moves to the biggest orthogonally adjacent
+  pile (clockwise tie-break, first scanned wins; stays if nothing beside it has tokens), absorbs that
+  whole stack, and the moment its hoard reaches the DEEP degree of the square it stands on — whether
+  or not that square is deep — it detonates exactly ONCE over the DEEP targets as neutral, leaves any
+  surplus as neutral tokens, and is gone. Owner rules implemented and pinned: one-shot, deep-degree
+  threshold, surplus neutral, activation immediately on reveal then once per round after the REVEALER,
+  reveal order for multiples, neutrals inert to placement but re-coloured by any owned blast, and a
+  draw when no square is owned by either player. The prediction ghost computes the exact set the phase
+  will run (the same simulation as the dumps) and reads `EATER EATS n` / `EATER HOLDS`, with a warning
+  ring and `· BOOM` when that bite is fatal to it. The isolation rule had to become the cell's OWN
+  out-degree (`threshold === 0`), because populating diagonals everywhere would otherwise have made
+  `['#..','.##']` legal — the writer found that and pinned it.
+  THE DISPATCHER'S BRIEF WAS WRONG in three places, each found by the writer and verified here:
+  (i) "record = position + hoard" would have stored one quantity twice — the hoard IS the square's
+  count, so the record is `{at, master}` and the count is the single source that also enters the hash;
+  (ii) my wipe instruction ("check wipes only after the mover's cascade") had no reachable form in 2a;
+  the load-bearing form is "a wave whose SPREADER is neutral awards no wipe"; (iii) the owner's
+  ratified "a blast re-colours a neutral cell" collides with "the eater's square is neutral at 0",
+  resolved by exempting the eater's SQUARE (a blast into it feeds the hoard) while neutral PILES still
+  clear normally — pinned.
+  THE DISPATCHER OVERSTATED A GUARANTEE TO THE OWNER, recorded rather than smoothed over: I told him
+  "nothing can lock — the all-neutral case is exactly the tie". That covers nobody owning anything,
+  but NOT the residual state where exactly one player owns nothing while every other square is owned
+  by the opponent or neutral: that player has no legal move and no rule ends the game. Constructible;
+  not observed in 300 games. See QUEUE row=16, which carries the rule fork.
+  UNPROVEN, carried as QUEUE items: the eater, neutral and ghost visuals have never been seen on a
+  real screen (no browser here — the owner's eyes, and the build is now PUBLISHED so he can look); the
+  AI is blind to eaters (QUEUE row=15); and a mixed wave whose neutral and owned piles fire together
+  resolves `spreader` to neutral so no wipe is awarded there — a deliberate fail-safe; per-token
+  colours stay exact.
 
 LANDED | row=1 | sha=ab2b552 | verify=DISPATCHER'S OWN full loop on exactly this tree:
   typecheck exit 0 · lint exit 0 · 65 tests / 12 files · build exit 0. `scripts/gate.sh` exists
@@ -366,6 +394,20 @@ SPEC | row=12 | THE EATER AGENT — OWNER'S DESIGN, rules settled, dispatched as
   `hashBoard` (the dispatcher's alternative, clockwise-from-north order derived from the board,
   was rejected in favour of the player-intuitive one).
 
+QUEUE | row=15 | TEACH THE AI ABOUT EATERS — or decide it should not know. `evaluate.ts` derives
+  from owned piles only, so an eater is invisible to it: it will not bait one into the opponent's
+  half, will not dodge the one beside its own stack, and cannot see that a `@` housing is a bomb with
+  a fuse. Unproven whether that makes the AI weak or merely naive; it does not affect the campaign
+  because NEST is skirmish-only. Reserved; NOT ordered.
+
+QUEUE | row=16 | THE RESIDUAL STALEMATE — THE FORK IS THE OWNER'S. If the player to move owns no
+  square and no square is empty (every square owned by the opponent or neutral), `legalMoves` is empty
+  while the outcome is still `ongoing`: a human has nothing to click and the AI throws. Measured
+  2026-09-27: constructible, and 0 occurrences in 300 random NEST games, so reachability is unproven.
+  Options: (a) that player LOSES (reuse `WinCause: 'wipe'`) — decisive, and "no ground, no move" is a
+  loss in any territorial game; (b) it is a DRAW; (c) allow placing on a neutral pile ONLY when there
+  is no other move (re-opens feeding). Recommendation: (a). Nothing is built until the owner picks.
+
 QUEUE | row=4 | DEEP FIELD ships in SKIRMISH only. A campaign mission for it needs a tenth
   mission and the ops grid has the same 3x3 capacity limit. Reserved, NOT ordered.
 
@@ -502,13 +544,15 @@ GUARD | worktrees-cannot-pollute-the-main-gate | writers work in `worktrees/<sli
   dispatcher's gate. VERIFIED BY INJECTION 2026-09-27 (row=2): a poisoned probe tree went RED
   at 66 tests while the main tree stayed GREEN at exactly 65.
 
-RECOVERY | A successor starts here: (1) `npm install` (deps are gitignored), (2) `npm run board`,
-  (3) read `docs/DECISIONS.md`, (4) `npm run gate` BEFORE any change, (5) `npm run publish` to make a
-  build LIVE — `git push` does not publish, and neither does `npm run build`. Landings: `ab2b552`
-  deep cells · `b475fd1` the process · `5ec65c3` duplication folds · `29f78f6` AI rule-derivation ·
-  `b20f5a6` the tripwire. Outstanding owner forks: QUEUE rows 4 (a DEEP FIELD campaign mission),
-  8 (measure the AI's calibration debt) and 9 (fold the small TitleScene duplication). There are no
-  writer worktrees, no writer sessions, and one goal — the chief-of-staff goal, paused.
+RECOVERY | A successor starts here: (1) `npm install` (deps are gitignored), (2) `npm run board` (it
+  reconciles this file, lists the live suite/browser processes and the lock), (3) read
+  `docs/DECISIONS.md`, (4) `npm run gate` BEFORE any change, (5) `npm run publish` to make a build
+  LIVE — `git push` does not publish. Landings, oldest first: `ab2b552` deep cells · `b475fd1` the
+  process · `5ec65c3` duplication folds · `29f78f6` AI rule-derivation · `b20f5a6` the tripwire ·
+  `871875a` armored plates · `ea3018d` the eater. Outstanding owner forks: row=16 (the residual
+  stalemate — needs a rule) and row=4 (a DEEP FIELD campaign mission); queued work: row=15 (AI and
+  eaters), row=8 (AI calibration debt), row=9 (a small TitleScene fold). No writer worktrees, no
+  writer sessions, one goal — the chief-of-staff goal, paused.
 ```
 
 ## The gate
