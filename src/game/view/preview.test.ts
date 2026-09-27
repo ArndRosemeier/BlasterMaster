@@ -84,9 +84,9 @@ describe('previewPlacement', () => {
   });
 
   it('shows where an eater will eat next, how much, and whether it ends there', () => {
-    // Open the housing with the engine's own collapse + reveal, then build a game
+    // Drop the plate with the engine's own collapse + reveal, then build a game
     // position whose only mover is the eater's master.
-    const nest = mapFromRows('preview-eater', 'preview-eater', ['#####', '##@##', '#####']);
+    const nest = mapFromRows('preview-eater', 'preview-eater', ['#####', '##+##', '#####']);
     const opened = collapseWalls(createBoard(nest), [cellId(1, 1)]);
     const fallen = collapseWalls(opened.board, [cellId(1, 1)]);
     const board = revealEaters(fallen.board, fallen.collapsed, 'a');

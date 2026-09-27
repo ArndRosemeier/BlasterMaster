@@ -47,17 +47,16 @@ describe('shipped maps', () => {
     ]);
     expect(bulkhead.armored).toEqual([cellId(4, 1), cellId(4, 2), cellId(4, 3)]);
     expect(bulkhead.cracked).toEqual([]);
-    expect(bulkhead.housing).toEqual([]);
 
-    // NEST is the 12th map and the only one with housings: two armored plates that
-    // reveal an eater when they fall, and no eaters until then.
+    // NEST is the 12th map: two armored plates that each take TWO detonations, and
+    // no eaters until one falls. EVERY fallen plate frees an eater, so these two
+    // plates are the whole eater budget of the map.
     const nest = createBoard(NEST);
     expect(nest.walls).toEqual([cellId(3, 0), cellId(3, 4)]);
     expect(nest.armored).toEqual([cellId(3, 0), cellId(3, 4)]);
-    expect(nest.housing).toEqual([cellId(3, 0), cellId(3, 4)]);
     expect(nest.eaters).toEqual([]);
     expect(Object.keys(nest.cells)).toHaveLength(33);
-    // The square a housing REVEALS into is an edge square: three ortho neighbours
+    // The square a plate REVEALS into is an edge square: three ortho neighbours
     // and two diagonal ones, so an eater standing there fires at a DEEP degree of
     // five (the map's whole threat). Pinned on those neighbours, because the square
     // itself is a plate, not a cell, until it falls.
@@ -82,12 +81,11 @@ describe('shipped maps', () => {
     expect(tilesFromRows(['#+#']).cells).toEqual([{ x: 0, y: 0 }, { x: 2, y: 0 }]);
     expect(tilesFromRows(['#+#']).walls).toEqual([{ x: 1, y: 0 }]);
     expect(tilesFromRows(['#+#']).armored).toEqual([{ x: 1, y: 0 }]);
-    expect(tilesFromRows(['#+#']).housing).toEqual([]);
-    // `@` is an armored plate AND a housing: both facts, one tile.
-    expect(tilesFromRows(['#@#']).walls).toEqual([{ x: 1, y: 0 }]);
-    expect(tilesFromRows(['#@#']).armored).toEqual([{ x: 1, y: 0 }]);
-    expect(tilesFromRows(['#@#']).housing).toEqual([{ x: 1, y: 0 }]);
-    expect(() => cellsFromRows(['#@#'])).toThrow(/wall glyphs/);
+    // `@` was the HOUSING glyph. Every fallen plate frees an eater now, so the
+    // glyph is gone: it is an UNKNOWN glyph, and an unknown glyph throws rather
+    // than quietly parsing as something else.
+    expect(() => tilesFromRows(['#@#'])).toThrow(/Unknown map glyph/);
+    expect(() => cellsFromRows(['#@#'])).toThrow(/Unknown map glyph/);
     expect(() => cellsFromRows(['#+#'])).toThrow(/wall glyphs/);
     expect(() => requireMap('nope')).toThrow(/Unknown map/);
   });

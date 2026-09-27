@@ -8,20 +8,16 @@ const VOID = '.';
 const DEEP = '*';
 /** Armored plate: a wall that takes TWO detonations — the first only cracks it. */
 const ARMORED = '+';
-/** Housing: an armored plate that REVEALS an eater when it finally falls. */
-const HOUSING = '@';
 
 export function tilesFromRows(rows: readonly string[]): {
   readonly cells: readonly MapCell[];
   readonly walls: readonly MapCell[];
   readonly armored: readonly MapCell[];
-  readonly housing: readonly MapCell[];
   readonly deep: readonly MapCell[];
 } {
   const cells: MapCell[] = [];
   const walls: MapCell[] = [];
   const armored: MapCell[] = [];
-  const housing: MapCell[] = [];
   const deep: MapCell[] = [];
   rows.forEach((row, y) => {
     [...row].forEach((glyph, x) => {
@@ -34,15 +30,12 @@ export function tilesFromRows(rows: readonly string[]): {
         deep.push({ x, y });
         return;
       }
-      if (glyph === WALL || glyph === ARMORED || glyph === HOUSING) {
-        // An armored plate IS a wall, and a housing IS an armored plate: each list
-        // is only the narrower fact, never a third kind of tile.
+      if (glyph === WALL || glyph === ARMORED) {
+        // An armored plate IS a wall: `armored` is only the narrower durability
+        // fact, never a third kind of tile.
         walls.push({ x, y });
-        if (glyph === ARMORED || glyph === HOUSING) {
+        if (glyph === ARMORED) {
           armored.push({ x, y });
-        }
-        if (glyph === HOUSING) {
-          housing.push({ x, y });
         }
         return;
       }
@@ -52,7 +45,7 @@ export function tilesFromRows(rows: readonly string[]): {
       throw new Error(`Unknown map glyph "${glyph}" at (${x}, ${y})`);
     });
   });
-  return { cells, walls, armored, housing, deep };
+  return { cells, walls, armored, deep };
 }
 
 export function cellsFromRows(rows: readonly string[]): readonly MapCell[] {
@@ -74,7 +67,6 @@ export function mapFromRows(id: string, name: string, rows: readonly string[]): 
     cells: tiles.cells,
     walls: tiles.walls,
     armored: tiles.armored,
-    housing: tiles.housing,
     deep: tiles.deep,
   };
 }
@@ -165,18 +157,20 @@ export const BULKHEAD: MapDefinition = mapFromRows('bulkhead', 'BULKHEAD', [
 ]);
 
 /**
- * The eater map: two `@` HOUSINGS on the top and bottom edge, 180-degree symmetric
- * so neither seat is nearer one. An edge square's deep degree is FIVE, so a fat
- * stack beside a housing arms its eater on the spot — and the eater eats the
- * biggest ortho neighbour it can see, which is exactly the pile the map invites
- * you to build. The two `*` cells in the middle are the payoff for standing off.
+ * The eater map: two `+` plates on the top and bottom edge, 180-degree symmetric so
+ * neither seat is nearer one and each needs TWO detonations — durability, not a
+ * special glyph, is what makes the release cost tempo. EVERY fallen plate frees an
+ * eater, so these two are the map's fuses. An edge square's deep degree is FIVE, so
+ * a fat stack beside a plate arms its eater on the spot — and the eater eats the
+ * biggest ortho neighbour it can see, which is exactly the pile the map invites you
+ * to build. The two `*` cells in the middle are the payoff for standing off.
  */
 export const NEST: MapDefinition = mapFromRows('nest', 'NEST', [
-  '###@###',
+  '###+###',
   '#######',
   '##*#*##',
   '#######',
-  '###@###',
+  '###+###',
 ]);
 
 export const MAPS = {

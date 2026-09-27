@@ -13,8 +13,9 @@ export type CascadeStep =
 
 /**
  * ONE wave of a cascade: snapshot every critical pile, dump them, damage the
- * plates and reveal any eater whose housing just fell. `seen` is the repeat guard,
- * seeded by the caller with the position the cascade starts from.
+ * plates and reveal an eater for every plate that fell (a cracked plate reveals
+ * nothing). `seen` is the repeat guard, seeded by the caller with the position the
+ * cascade starts from.
  *
  * `fallback` is the colour a NON-neutral pile spreads (the mover's — an opponent's
  * pile that fires on your turn hands you its tokens). `master` is the player whose

@@ -119,18 +119,11 @@ export function createBoard(map: MapDefinition): Board {
   const cellCoords = collectCoords(map.cells, 'cell', map.id);
   const wallCoords = collectCoords(map.walls, 'wall', map.id);
   const armoredCoords = collectCoords(map.armored, 'armored plate', map.id);
-  const housingCoords = collectCoords(map.housing ?? [], 'housing plate', map.id);
   const deepCoords = collectCoords(map.deep, 'deep cell', map.id);
   for (const id of armoredCoords.keys()) {
     // An armored plate is a WALL with two hit points, never a third kind of tile.
     if (!wallCoords.has(id)) {
       throw new Error(`Map "${map.id}" marks unknown plate ${id} as armored`);
-    }
-  }
-  for (const id of housingCoords.keys()) {
-    // A housing is the armored plate that REVEALS an eater, never a new durability.
-    if (!armoredCoords.has(id)) {
-      throw new Error(`Map "${map.id}" marks plate ${id} as a housing without armor`);
     }
   }
   for (const id of wallCoords.keys()) {
@@ -186,11 +179,8 @@ export function createBoard(map: MapDefinition): Board {
   // The armored plates validate exactly like walls (they ARE walls); this list is
   // only the durability fact, sorted the same way so it is comparable by value.
   const armored = [...armoredCoords.keys()].sort();
-  // Housings are the armored plates that reveal an eater: same durability, more
-  // consequence. Sorted like `armored`, so both facts read the same way.
-  const housing = [...housingCoords.keys()].sort();
 
-  return { cells, walls, cracked: [], armored, housing, eaters: [] };
+  return { cells, walls, cracked: [], armored, eaters: [] };
 }
 
 export function getCell(board: Board, id: CellId): CellState {
@@ -227,11 +217,6 @@ export function isArmoredPlate(board: Board, id: CellId): boolean {
 /** Has this plate already taken its first hit? Only an armored plate ever can be. */
 export function isCrackedPlate(board: Board, id: CellId): boolean {
   return board.cracked.includes(id);
-}
-
-/** Is this plate a housing — the armored plate that reveals an eater when it falls? */
-export function isHousingPlate(board: Board, id: CellId): boolean {
-  return board.housing.includes(id);
 }
 
 /** The eater standing on this square, if any. `at` is unique: one eater per square. */
@@ -424,9 +409,9 @@ export function replaceCell(
 
 /**
  * Position signature. EVERY piece of board state enters it — cells, intact plates
- * (`#w`), cracked plates (`#x`), the map-authored armor (`#a`) and housings
- * (`#h`), and the living eaters (`#e`, in REVEAL ORDER) — so two boards that
- * differ in ANY of them are different positions to the cascade's repeat guard.
+ * (`#w`), cracked plates (`#x`), the map-authored armor (`#a`) and the living
+ * eaters (`#e`, in REVEAL ORDER) — so two boards that differ in ANY of them are
+ * different positions to the cascade's repeat guard.
  * Dropping a term makes the guard blind to that difference.
  *
  * TRAP: a term that GROWS without bound (a counter, an append-only log) makes the
@@ -445,9 +430,8 @@ export function hashBoard(board: Board): string {
   const walls = [...board.walls].sort().join(',');
   const cracked = [...board.cracked].sort().join(',');
   const armored = [...board.armored].sort().join(',');
-  const housing = [...board.housing].sort().join(',');
   const eaters = board.eaters.map((eater) => `${eater.at}:${eater.master}`).join(',');
-  return `${cells}|#w:${walls}|#x:${cracked}|#a:${armored}|#h:${housing}|#e:${eaters}`;
+  return `${cells}|#w:${walls}|#x:${cracked}|#a:${armored}|#e:${eaters}`;
 }
 
 export type WallDamage = {
@@ -531,7 +515,6 @@ export function collapseWalls(
       walls: board.walls.filter((id) => !leftWalls.has(id)),
       cracked: [...board.cracked.filter((id) => !fallSet.has(id)), ...newlyCracked].sort(),
       armored: board.armored,
-      housing: board.housing,
       eaters: board.eaters,
     },
     collapsed: falling,
@@ -540,10 +523,11 @@ export function collapseWalls(
 }
 
 /**
- * A fallen HOUSING reveals its eater: the new cell becomes the eater's own square
+ * EVERY fallen plate reveals its eater: the new cell becomes the eater's own square
  * (`owner: 'neutral'` at 0 tokens, so no player can place into it) and the eater
- * joins the end of the reveal-order list. Plates that merely cracked, or fell
- * without being housings, are ignored — "which plate reveals" has one home here.
+ * joins the end of the reveal-order list. `fallen` is exactly `collapseWalls`'s
+ * `collapsed` — the plates that took their LAST hit — so a plate that merely
+ * CRACKED reveals nothing and there is no "which plate reveals" question left.
  */
 export function revealEaters(
   board: Board,
@@ -553,9 +537,6 @@ export function revealEaters(
   let cells = board.cells;
   const eaters = [...board.eaters];
   for (const id of fallen) {
-    if (!isHousingPlate(board, id)) {
-      continue;
-    }
     const cell = cells[id];
     if (cell === undefined) {
       continue;

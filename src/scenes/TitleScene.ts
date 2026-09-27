@@ -8,7 +8,7 @@ import { CAMPAIGN, type Mission } from '../game/ops/campaign';
 import { browserStore, isMissionUnlocked, loadProgressOrReset, starsFor } from '../game/ops/progress';
 import { MAPS, MAP_LIST, isMapId, type MapId } from '../game/maps';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, theme } from '../game/theme';
-import { cardGrid, cellCenter, layoutBoard } from '../game/view/layout';
+import { cardGrid, cellCenter, layoutBoard, mapCardText } from '../game/view/layout';
 import { publicAsset } from '../lib/publicAsset';
 import { addWordmark, makePanelButton } from './ui/chrome';
 
@@ -254,7 +254,7 @@ export class TitleScene extends Phaser.Scene {
     this.drawSchematic(mapId, x, y - 18);
     this.keep(
       this.add
-        .text(x, y + 36, map.name, {
+        .text(x, y + 28, map.name, {
           fontFamily: theme.fonts.display,
           fontSize: '15px',
           color: theme.colors.hudText,
@@ -262,21 +262,28 @@ export class TitleScene extends Phaser.Scene {
         })
         .setOrigin(0.5),
     );
-    const wallLine =
-      map.walls.length > 0
-        ? ` · ${map.walls.length} ${map.walls.length === 1 ? 'PLATE' : 'PLATES'}`
-        : '';
-    const deepLine = map.deep.length > 0 ? ` · ${map.deep.length} DEEP` : '';
-    const armorLine = map.armored.length > 0 ? ` · ${map.armored.length} ARMORED` : '';
+    const cardText = mapCardText(map);
     this.keep(
       this.add
-        .text(x, y + 54, `${map.cells.length} CELLS${wallLine}${deepLine}${armorLine}`, {
+        .text(x, y + 44, cardText.counts, {
           fontFamily: theme.fonts.mono,
           fontSize: '13px',
           color: theme.colors.hudMuted,
         })
         .setOrigin(0.5),
     );
+    // The reveal rule is a RULE, not a map fact: every map with plates names it.
+    if (cardText.reveal !== '') {
+      this.keep(
+        this.add
+          .text(x, y + 58, cardText.reveal, {
+            fontFamily: theme.fonts.mono,
+            fontSize: '11px',
+            color: theme.colors.hudText,
+          })
+          .setOrigin(0.5),
+      );
+    }
     card.setInteractive({ useHandCursor: true });
     card.on('pointerover', () => {
       card.setStrokeStyle(2, theme.player.a.fill, 1);

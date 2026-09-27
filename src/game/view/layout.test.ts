@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { createBoard, getCell } from '../engine/board';
 import { cellId } from '../engine/ids';
 import type { CellId } from '../engine/types';
-import { cellsFromRows, mapFromRows } from '../maps';
+import { BULKHEAD, NEST, SPARK, cellsFromRows, mapFromRows } from '../maps';
 import { CANVAS_WIDTH } from '../theme';
-import { cardGrid, cellCenter, layoutBoard, orbOffsets, reachPips } from './layout';
+import { cardGrid, cellCenter, layoutBoard, mapCardText, orbOffsets, reachPips } from './layout';
 
 describe('layoutBoard', () => {
   it('centers a 2x2 inside the given area', () => {
@@ -93,6 +93,22 @@ describe('cardGrid', () => {
     expect(placements[8]).toEqual({ x: 175, y: 542 });
     expect(placements[10]).toEqual({ x: 795, y: 542 });
     expect(placements[11]).toEqual({ x: 1105, y: 542 });
+  });
+});
+
+describe('mapCardText', () => {
+  it('names the reveal rule on every map that has plates, and on no other', () => {
+    // BULKHEAD (three armored plates) and NEST (two) read the SAME rule line: there
+    // is no housing-vs-armored distinction left for a card to teach.
+    for (const map of [BULKHEAD, NEST]) {
+      const text = mapCardText(map);
+      const word = map.walls.length === 1 ? 'PLATE' : 'PLATES';
+      expect(text.counts).toContain(`${map.walls.length} ${word}`);
+      expect(text.reveal).toBe('EVERY FALL FREES AN EATER');
+    }
+    // SPARK is all cells: nothing can fall, so there is no rule to name.
+    expect(mapCardText(SPARK).reveal).toBe('');
+    expect(mapCardText(SPARK).counts).toBe('9 CELLS');
   });
 });
 

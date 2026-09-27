@@ -152,7 +152,7 @@ export function activateEater(
 /**
  * THE EATER PHASE, right after the revealer's turn: every eater whose `master` is
  * the player who just moved activates, in REVEAL ORDER. An eater revealed DURING
- * the phase (its housing fell to a neutral blast) is appended to the list and
+ * the phase (a plate fell to a neutral blast) is appended to the list and
  * activates in the same phase, because a reveal is immediate.
  *
  * Termination is structural, not hopeful: each eater is activated at most once per

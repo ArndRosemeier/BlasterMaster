@@ -18,7 +18,6 @@ export {
   isCrackedPlate,
   isCritical,
   isEaterCell,
-  isHousingPlate,
   isNearCritical,
   legalMoves,
   mapBounds,

@@ -67,12 +67,6 @@ export type Board = {
    * `cracked` is always a subset of `armored`.
    */
   readonly armored: readonly CellId[];
-  /**
-   * Map-authored housings: an armored plate (`+` durability) that REVEALS an
-   * eater when it finally falls. A subset of `armored`, immutable for the life of
-   * the board, so "is this plate a housing?" is a MAP fact too.
-   */
-  readonly housing: readonly CellId[];
   /** Living eaters, in REVEAL ORDER: the order their activations run in. */
   readonly eaters: readonly EaterState[];
 };
@@ -89,12 +83,6 @@ export type MapDefinition = {
   readonly walls: readonly MapCell[];
   /** Subset of `walls` that takes two detonations: the `+` glyph. */
   readonly armored: readonly MapCell[];
-  /**
-   * Subset of `armored` that reveals an eater when it falls. Optional because
-   * hand-written `MapDefinition` fixtures predate housings; `mapFromRows` always
-   * fills it, and `createBoard` reads `?? []`.
-   */
-  readonly housing?: readonly MapCell[];
   /** Subset of `cells` that detonates on the diagonals too. */
   readonly deep: readonly MapCell[];
 };

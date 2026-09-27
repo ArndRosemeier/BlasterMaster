@@ -341,7 +341,7 @@ describe('collapsible walls', () => {
 
   it('opens a bridge after the dump, without sending the blast through the plate', () => {
     const seeded = seedBoard(createBoard(BRIDGE), [{ id: cellId(1, 0), count: 1, owner: 'a' }]);
-    const before = tokenCount(seeded, 'a') + tokenCount(seeded, 'b');
+    const before = boardCells(seeded).reduce((sum, cell) => sum + cell.count, 0);
     const result = requireOk(applyMove(seeded, 'a', cellId(1, 0), NEVER_PLACED));
     const first = result.waves[0];
     if (first === undefined) {
@@ -351,12 +351,16 @@ describe('collapsible walls', () => {
     expect(first.transfers.map((transfer) => transfer.to)).toEqual([cellId(0, 0)]);
     expect(first.transfers.some((transfer) => transfer.to === cellId(2, 0))).toBe(false);
     expect(first.collapsed).toEqual([cellId(2, 0)]);
+    // Every fallen plate reveals an eater on its square, IN the wave that dropped
+    // it: the square is the eater's own (`neutral` even at 0), never an empty plain
+    // one. Tokens are conserved across the whole board, hoards included.
     expect(countOf(first.board, 2, 0)).toBe(0);
-    expect(ownerOf(first.board, 2, 0)).toBeNull();
+    expect(ownerOf(first.board, 2, 0)).toBe('neutral');
+    expect(first.board.eaters).toEqual([{ at: cellId(2, 0), master: 'a' }]);
     expect(first.board.walls).toEqual([]);
     expect(getCell(first.board, cellId(1, 0)).neighbors).toEqual([cellId(2, 0), cellId(0, 0)]);
     expect(getCell(first.board, cellId(3, 0)).neighbors).toEqual([cellId(4, 0), cellId(2, 0)]);
-    expect(tokenCount(result.final, 'a') + tokenCount(result.final, 'b')).toBe(before + 1);
+    expect(boardCells(result.final).reduce((sum, cell) => sum + cell.count, 0)).toBe(before + 1);
     expect(hashBoard(createBoard(BRIDGE))).not.toBe(hashBoard(createBoard(map('open', ['#####']))));
   });
 
@@ -374,17 +378,13 @@ describe('collapsible walls', () => {
   });
 
   it('lets a later turn dump through the new plate onto the far island', () => {
-    const opened = requireOk(
-      applyMove(
-        seedBoard(createBoard(BRIDGE), [{ id: cellId(1, 0), count: 1, owner: 'a' }]),
-        'a',
-        cellId(1, 0),
-        NEVER_PLACED,
-      ),
-    );
-    expect(opened.final.walls).toEqual([]);
-    const charged = requireOk(applyMove(opened.final, 'a', cellId(2, 0), { a: true, b: false }));
-    const cross = requireOk(applyMove(charged.final, 'a', cellId(2, 0), { a: true, b: false }));
+    // Drop the plate with the engine's own collapse and CHARGE its square over a
+    // later turn. The eater that a real fall now rises there is a separate actor,
+    // so this pin isolates the rewire it is about: the opened square is a cell.
+    const opened = collapseWalls(createBoard(BRIDGE), [cellId(1, 0)]);
+    expect(opened.collapsed).toEqual([cellId(2, 0)]);
+    const charged = seedBoard(opened.board, [{ id: cellId(2, 0), count: 1, owner: 'a' }]);
+    const cross = requireOk(applyMove(charged, 'a', cellId(2, 0), { a: true, b: false }));
     const first = cross.waves[0];
     if (first === undefined) {
       throw new Error('expected the new plate to explode');
@@ -446,7 +446,7 @@ describe('armored plates', () => {
     expect(result.waves).toHaveLength(1);
   });
 
-  it('drops on the second detonation as an empty unowned plain cell and rewires', () => {
+  it('drops on the second detonation onto a rewired square that becomes its eater', () => {
     const cracked = crackOnce();
     expect(cracked.cracked).toEqual([cellId(1, 1)]);
     expect(cracked.walls).toEqual([]);
@@ -462,9 +462,11 @@ describe('armored plates', () => {
     expect(wave.cracked).toEqual([]);
     expect(wave.board.cracked).toEqual([]);
     expect(wave.board.walls).toEqual([]);
+    // The fall reveals the eater on its own square (neutral even at 0 tokens).
+    expect(wave.board.eaters).toEqual([{ at: cellId(1, 1), master: 'a' }]);
     const fallen = getCell(wave.board, cellId(1, 1));
     expect(fallen.count).toBe(0);
-    expect(fallen.owner).toBeNull();
+    expect(fallen.owner).toBe('neutral');
     expect(fallen.deep).toBe(false);
     expect(fallen.neighbors).toEqual([
       cellId(1, 0),
@@ -513,8 +515,11 @@ describe('armored plates', () => {
     expect(first.cracked).toEqual([cellId(0, 1)]);
     expect(first.board.walls).toEqual([]);
     expect(first.board.cracked).toEqual([cellId(0, 1)]);
+    // The `=` plate fell, so it is its eater's square now; the `+` beside it only
+    // cracked and reveals NOTHING.
     expect(countOf(first.board, 1, 0)).toBe(0);
-    expect(ownerOf(first.board, 1, 0)).toBeNull();
+    expect(ownerOf(first.board, 1, 0)).toBe('neutral');
+    expect(first.board.eaters).toEqual([{ at: cellId(1, 0), master: 'a' }]);
     expect(result.waves).toHaveLength(1);
   });
 
@@ -832,10 +837,12 @@ describe('random legal play terminates each cascade', () => {
         if (pick === undefined) {
           throw new Error('legalMoves returned empty while game is ongoing');
         }
-        const tokensBefore = tokenCount(game.board, 'a') + tokenCount(game.board, 'b');
+        const tokensBefore = boardCells(game.board).reduce((sum, cell) => sum + cell.count, 0);
         const result = requireOk(applyTurn(game, pick));
         const board = result.game.board;
-        expect(tokenCount(board, 'a') + tokenCount(board, 'b')).toBe(tokensBefore + 1);
+        // Every drop frees an eater, whose hoard and flood are NEUTRAL tokens — so
+        // conservation is a whole-board count, not a per-player one any more.
+        expect(boardCells(board).reduce((sum, cell) => sum + cell.count, 0)).toBe(tokensBefore + 1);
         // `walls` and `cracked` stay disjoint, only armored plates ever crack, and a
         // cracked plate is still a plate — never a cell.
         const crackedSet = new Set(board.cracked);

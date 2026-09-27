@@ -1,6 +1,6 @@
 import { blastTargets, boardCells, mapBounds } from '../engine/board';
 import { cellId } from '../engine/ids';
-import type { Board, CellId, CellState } from '../engine/types';
+import type { Board, CellId, CellState, MapDefinition } from '../engine/types';
 
 export type BoardArea = {
   readonly x: number;
@@ -95,6 +95,33 @@ export function cardGrid(
     });
   }
   return placements;
+}
+
+export type MapCardText = {
+  /** The counts line: cells, standing plates, deep cells, armored plates. */
+  readonly counts: string;
+  /** The reveal RULE, named on every map whose plates can fall; empty otherwise. */
+  readonly reveal: string;
+};
+
+/**
+ * The skirmish card's text. A plate count alone taught the wrong expectation (a
+ * fallen plate used to read as an empty square), so a map with plates names the
+ * REVEAL RULE on its card: every plate that falls frees an eater. It is a RULE and
+ * not a map fact, so it is the same line wherever the rule can apply — there is no
+ * housing-vs-armored distinction left to draw.
+ */
+export function mapCardText(map: MapDefinition): MapCardText {
+  const wallLine =
+    map.walls.length > 0
+      ? ` · ${map.walls.length} ${map.walls.length === 1 ? 'PLATE' : 'PLATES'}`
+      : '';
+  const deepLine = map.deep.length > 0 ? ` · ${map.deep.length} DEEP` : '';
+  const armorLine = map.armored.length > 0 ? ` · ${map.armored.length} ARMORED` : '';
+  return {
+    counts: `${map.cells.length} CELLS${wallLine}${deepLine}${armorLine}`,
+    reveal: map.walls.length > 0 ? 'EVERY FALL FREES AN EATER' : '',
+  };
 }
 
 /** Clockwise from north. Offsets are fractions of the cell size. */

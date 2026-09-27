@@ -203,9 +203,9 @@ describe('every cell carries its diagonals', () => {
 
 /**
  * The hash contract for the state this landing introduced. These Board values are
- * NOT reachable by play yet (nothing reveals an eater or authors a housing) — the
- * pin is that `hashBoard` is a function of them, exactly like the `#x` contract
- * for cracked plates. A term that goes missing here makes the repeat guard blind.
+ * NOT reachable by play yet (nothing seeds an eater) — the pin is that `hashBoard`
+ * is a function of them, exactly like the `#x` contract for cracked plates. A term
+ * that goes missing here makes the repeat guard blind.
  */
 describe('hashBoard carries the new state', () => {
   const base = createBoard(map('hash-base', ['###']));
@@ -217,8 +217,7 @@ describe('hashBoard carries the new state', () => {
     return { ...board, cells: { ...board.cells, [id]: { ...cell, count, owner: 'neutral' } } };
   }
 
-  it('distinguishes a housing, an eater, its master, its hoard, and reveal order', () => {
-    expect(hashBoard({ ...base, housing: [cellId(1, 0)] })).not.toBe(hashBoard(base));
+  it('distinguishes an eater, its master, its hoard, and reveal order', () => {
     expect(hashBoard({ ...base, eaters: [eater] })).not.toBe(hashBoard(base));
     expect(hashBoard({ ...base, eaters: [{ ...eater, master: 'b' }] })).not.toBe(
       hashBoard({ ...base, eaters: [eater] }),
