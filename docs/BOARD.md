@@ -30,7 +30,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: ab2b552f0ace32651e65fd65cef1b682feda19bf · 2026-09-27T15:11Z
+reconciled: b475fd13323753746a5fb5faf12cc5585006fe75 · 2026-09-27T15:15Z
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -39,23 +39,34 @@ SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff 
     runtime failure notice. A parked tick is not a work order and gets silence.
 
 LANDED | row=1 | sha=ab2b552 | verify=DISPATCHER'S OWN full loop on exactly this tree:
-  typecheck exit 0 · lint exit 0 · 65 tests / 12 files · build exit 0. `scripts/gate.sh` did
-  not exist at this sha, so the ONE-GATE verdict is recorded against the gated tree tip that
-  contains it (row=2) — the two trees are identical apart from the process files.
+  typecheck exit 0 · lint exit 0 · 65 tests / 12 files · build exit 0. `scripts/gate.sh` exists
+  only from row=2, so row=1 is verified by the gated tip b475fd1, a descendant that touches
+  no file row=1 introduced — the same 65 tests pass and every `src/` path is identical.
   | retired=nothing (self-authored, single-session) | note=the owner's deep-cell idea, built
   after the owner approved three forks: deep blasts drop diagonally touching walls; diagonal
   corner-cutting through wall corners is allowed; build it now.
   docs=docs/HOW_WE_DO_IT.md (one-explode-rule pattern, maps row, reach-drawn pattern,
   anti-pattern clause) + docs/DECISIONS.md rows 3-8.
 
-IN-FLIGHT | row=2 | actor=chief-of-staff (self, single-threaded — no writer dispatched: this is
-  the process itself, and the doctrine's first slice IS the process)
-  | worktree=/home/administrator/projects/BlasterMaster (main tree) | branch=main | base=ab2b552
-  | state=authoring at 2026-09-27T15:1xZ; commit and the gate verdict follow immediately
-  | note=scripts/gate.sh (the ONE gate: atomic lock, two tiers, raw log, exit vocabulary
-  0/1/2/9), scripts/board.sh (this reconciler), docs/BOARD.md (this file), docs/DECISIONS.md
-  (append-only ledger), `npm run gate` / `gate:compile` / `board`, and the worktree ignores
-  (eslint + gitignore) that stop a writer's tree being swept into the main gate.
+LANDED | row=2 | sha=b475fd1 | verify=DISPATCHER'S OWN: `npm run gate` at the gated tip
+  b475fd1 → exit 0 FULL GREEN: typecheck 0 · lint 0 · 65 tests / 12 files · build 0 (~15s),
+  raw log .gate-logs/gate-20260927T151530Z-3864185.log. FOUR earlier runs of the gate chain
+  are VOID or superseded and none is quoted as a result: two exit-9 LOCK refusals (both were
+  the lock bug below, found by running the guard rather than reading the diff), one verdict
+  whose only dirty path was the lock itself, and one superseded tip.
+  | retired=worktree /home/administrator/projects/BlasterMaster/worktrees/probe · branch
+  probe/worktree-guard (verified gone: `git worktree list` shows only the main tree and
+  `git branch -a` only main)
+  | note=the process itself: scripts/gate.sh (ONE gate: atomic lock, two tiers, raw log,
+  dirty-tree warning, exit vocabulary 0/1/2/9), scripts/board.sh (this reconciler),
+  docs/BOARD.md (this file), docs/DECISIONS.md (append-only ledger), `npm run gate` /
+  `gate:compile` / `board`, and the worktree ignores (eslint worktrees/**, .gitignore
+  worktrees/ + .gate-logs/ + .blastermaster-lock).
+  The worktree guard was verified BY INJECTION, not by inspection: worktrees/probe (branch
+  probe/worktree-guard, based on f807686) was poisoned with `export const poisoned: any` plus
+  a failing test; in its OWN tree the gate went RED (lint exit 1 at 66 tests) and the main
+  tree stayed GREEN at EXACTLY 65 — so a writer's half-finished tree cannot enter the
+  dispatcher's gate.
   docs=AGENTS.md is unchanged deliberately — its commands, quality bars and "done" bar
   already match this process.
 
@@ -75,9 +86,18 @@ TRAP | An atomic mkdir lock acquires ONCE. The gate's first ever run re-attempte
   after a successful acquisition, failed on its OWN lock, reported a phantom `LOCK RACE`, and
   exited 9 — and because that exit preceded the `trap`, it left an ownerless
   `.blastermaster-lock` behind, which would have refused every run for the full 30-minute
-  staleness window. RULE: retry the mkdir ONLY after a sweep, install the trap the instant the
-  lock is ours, and treat an ownerless lock as sweepable when no suite is alive. Measured
-  2026-09-27; the run was VOID (exit 9) and was never quoted as a result.
+  staleness window. RULE: retry the mkdir ONLY inside the sweep branch, install the trap the
+  instant the lock is ours, and treat an ownerless lock as sweepable when no suite is alive.
+  The FIRST fix of this failed too: its comment claimed the retry was conditional while the
+  code still ran it unconditionally, and the gate refused again (both runs VOID, exit 9). A
+  guard is verified by RUNNING it, never by reading the diff.
+
+TRAP | The gate's own lock is not repository dirt. The new dirty-tree warning fired on its
+  first run reporting exactly one dirty path: `.blastermaster-lock`, created by the gate after
+  it acquired the lock. RULE: transient process artifacts (`.gate-logs/`,
+  `.blastermaster-lock`) are gitignored — a warning that is always on is a warning nobody
+  reads. The warning still earned its keep: it also caught a tip whose gated content was not
+  yet committed.
 
 TRAP | A tenth map card silently overflows the skirmish panel: both title grids are a
   hardcoded 3x3 of 296x128 cards at a 142 pitch, and a fourth row collides with BACK at
@@ -107,8 +127,8 @@ GUARD | board-reconciler | `scripts/board.sh` checks every sha, branch, worktree
 GUARD | worktrees-cannot-pollute-the-main-gate | writers work in `worktrees/<slice>`
   (gitignored); `tsc` includes only `src`, vitest's `include` is `src/**` relative to the main
   root, and eslint ignores `worktrees/**` — so a half-finished writer tree cannot enter the
-  dispatcher's gate. Verify: create `worktrees/probe` with a file that fails lint and a test
-  that fails, run the gate from the main tree — it must still be GREEN at 65 tests.
+  dispatcher's gate. VERIFIED BY INJECTION 2026-09-27 (row=2): a poisoned probe tree went RED
+  at 66 tests while the main tree stayed GREEN at exactly 65.
 
 RECOVERY | A successor starts here: (1) `npm install` (deps are gitignored), (2) `npm run
   board`, (3) read `docs/DECISIONS.md`, (4) `npm run gate` BEFORE any change. The deep-cell
