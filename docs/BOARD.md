@@ -456,6 +456,14 @@ GUARD | geometry-has-one-home | `eslint.config.js` errors on `.neighbors`/`.diag
   injection: `.neighbors` into any other src file → lint exit 1; `.deep` in a non-ai view file →
   clean (it is a display flag the view may read); `.deep` in `ai/*.test.ts` → error. Known limit:
   hardcoded rule NUMBERS are not caught (see the TRAP on the syntactic guard).
+GUARD | process-audit-that-can-see | after every landing (and after any turn that died) the
+  reconciler lists live suite workers and browsers, because a turn that ends does not kill its
+  processes and the box is shared. It anchors suite detection on the FIRST ARGV TOKEN
+  (`ps -eo pid=,etimes=,args=` with the node prefix), NOT on `comm`: on this host a node process
+  reports `comm=MainThread`, so a comm-based scan finds ZERO node processes while the DSH web
+  server and OpenClaw are running — measured 2026-09-27. Browsers are counted by `comm`, which
+  cannot self-match the auditing shell. Verify: run `npm run board` and see the audit line;
+  a killed-but-lingering worker or a headless browser tree must appear there.
 GUARD | heavy-check-overlap | the gate lock is honoured — it resolves to the same path from the
   main tree and every worktree (measured: `--git-common-dir` is `.git` in the main tree and the
   absolute path in a worktree, so both yield `<repo>/.blastermaster-lock`) — but a DIRECT test run
