@@ -24,13 +24,17 @@ is written here; this file is the authority for what is happening right now.
 | `GUARD` | a mechanism protecting the process, and how to verify the mechanism itself |
 | `RECOVERY` | where a successor finds everything it needs |
 
+`row=` on a QUEUE/IN-FLIGHT/LANDED record is a **slice id on this board**, not a ledger row:
+`docs/DECISIONS.md` numbers decisions independently and append-only. A brief names both, and a
+record that spans a landing states its ledger rows explicitly.
+
 Every record names something checkable — sha, branch, worktree, path. "Probably fine"
 is not a record.
 
 ## Records
 
 ```
-reconciled: 47b7742d7dd9c2e97332da184f4a349abb4a3d21 · 2026-09-27T15:18Z
+reconciled: 5ec65c391015caa6061b8c1646d45cb913b16a48 · 2026-09-27T15:25Z
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -92,6 +96,45 @@ IN-FLIGHT | row=3 | writer=session-f65b232e-25f8-4fc5-bdb1-75417a413d9a
   `choose.ts`, and any numeric tuning of difficulty tiers.
   docs=the writer amends `docs/DECISIONS.md` row 9 (append-only) and `docs/HOW_WE_DO_IT.md`;
   the dispatcher owns `docs/BOARD.md`.
+  STEER | 2026-09-27T15:2xZ, while the writer was in flight (steered, not restarted): the guard
+  was WIDENED because scoping it to `ai/` was arbitrary — `.neighbors`/`.diagonals` member
+  access must ERROR in ALL non-test source (`files: ['src/**/*.ts']` with
+  `ignores: ['**/*.test.ts']`), so the rule's geometry keeps exactly one home. `.deep` stays
+  banned inside `src/game/ai/**` ONLY: it is a legitimate DISPLAY flag read by the view (11
+  sites) and tests legitimately assert geometry (18 assertions today), so a repo-wide `.deep`
+  ban would red on correct code. The writer must also report the obligation-4 `COPIES:` line,
+  and must not touch `BoardView.ts`/`engine.test.ts` (the dispatcher folded copies there).
+  Ledger row for this slice: 9.
+
+LANDED | row=6 | sha=5ec65c3 | verify=DISPATCHER'S OWN: `npm run gate` exit 0 FULL GREEN at
+  5ec65c3 — typecheck 0 · lint 0 · 65 tests / 12 files · build 0, raw log
+  .gate-logs/gate-20260927T152504Z-3870376.log. Plus the audit that produced it: a
+  normalized-body scan (comments stripped, identifiers blanked, 80-char floor) over `src/**`
+  reported 105 named function bodies and exactly ONE duplicate group, and after the folds the
+  same scan reports 104 bodies and ZERO. `grep -rn "\.neighbors|\.diagonals" src` (non-test)
+  returns 4 hits, all inside `src/game/engine/board.ts`.
+  | retired=nothing | note=OWNER'S ORDER, verbatim: "Code multiplications are a real vibe
+  coding hazard and need to be actively tackled." Three copies folded, direction = DELETE
+  only: (a) `mulberry32` duplicated in `engine.test.ts` while `src/lib/rng.ts` is canonical;
+  (b) the orb capacity 4 written in three places → `ORB_SLOTS` in `view/layout.ts` is the one
+  home; (c) the view hardcoded the RULE's spread — `cell.deep ? 8 : 4` and
+  `2 + (cell.deep ? 4 : 0)` → now `Math.max(ORB_SLOTS, threshold(cell))` and `2 +
+  cuts.length`, so a future rule change cannot leave a stale number in the view.
+  docs=the commit body of 5ec65c3 carries the audit numbers.
+
+QUEUE | row=7 | THE GENERIC DUPLICATION TRIPWIRE — the active half of row=6. A test that
+  parses every named function body under `src/**` (INCLUDING `*.test.ts`), normalizes it
+  (comments stripped, whitespace collapsed, the function's own and parameter names blanked so
+  a rename cannot hide a copy), and requires each 2+-site population to equal a CHECKED-IN
+  INVENTORY exactly: a new copy reds naming every site, and a FOLDED copy reds as a stale
+  entry until its line is deleted — so a blessing cannot outlive the duplication. Direction is
+  therefore DELETE-ONLY: entries are removed when copies are folded, never added to bless a
+  duplicate. It is a tripwire, not a proof (it cannot see paraphrases or bodies under its
+  measured floor), so each fold still closes with a per-idea "exactly one" pin. Baseline for
+  the inventory is ZERO as of 5ec65c3 (104 bodies scanned, 0 groups), which is the cheapest
+  moment this can ever be added. Reserved; NOT yet ordered — it is the next slice after
+  row=3, and it must be SERIALIZED behind row=3 because both land in
+  `docs/HOW_WE_DO_IT.md` and `docs/DECISIONS.md`.
 
 QUEUE | row=4 | DEEP FIELD ships in SKIRMISH only. A campaign mission for it needs a tenth
   mission and the ops grid has the same 3x3 capacity limit. Reserved, NOT ordered.
