@@ -34,7 +34,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: 5ec65c391015caa6061b8c1646d45cb913b16a48 · 2026-09-27T15:25Z
+reconciled: 29f78f6e6d462a7cf9b58d0f07e499e6bd7332db · 2026-09-27T15:28Z
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -74,37 +74,42 @@ LANDED | row=2 | sha=b475fd1 | verify=DISPATCHER'S OWN: `npm run gate` at the ga
   docs=AGENTS.md is unchanged deliberately — its commands, quality bars and "done" bar
   already match this process.
 
-IN-FLIGHT | row=3 | writer=session-f65b232e-25f8-4fc5-bdb1-75417a413d9a
-  | worktree=/home/administrator/projects/BlasterMaster/worktrees/ai-rule-derived
-  | branch=feat/ai-rule-derived | base=47b7742 | dispatched_by=session-1e324382
-  | state=dispatched 2026-09-27T15:2xZ, deps installed, no commit yet
-  | note=OWNER'S ORDER, verbatim: "AI should work on a more fundamental level if it does not do
-  so now. The same routines that steer how spread and explosions work should also be used by the
-  AI so that changes here will automatically be used by the AI (avoid any code duplications,
-  make everything resilient to code changes)".
-  INTAKE CORRECTION (dispatcher, with evidence): the premise is already true for legality and
-  simulation — `ai/choose.ts:1-2` imports `legalMoves` and `applyTurn`, and `ai/evaluate.ts:1`
-  imports `nearCriticalCount`, which routes through the engine's `threshold()` — which is why
-  the deep-cell landing `ab2b552` needed ZERO AI edits. A grep for
-  `neighbors|diagonals|threshold|blastTargets` in `src/game/ai/` finds only array `.length`.
-  What is still rule-BLIND is the JUDGEMENT: `evaluate.ts` hardcodes weights over features that
-  know neither threshold nor reach, and nothing stops a future edit re-deriving adjacency in
-  `ai/`. So the slice is: derive every evaluation term from `threshold`/`blastTargets`/
-  `isCritical`/`isNearCritical`; add an eslint `no-restricted-syntax` guard scoped to
-  `src/game/ai/**` forbidding `.neighbors`/`.diagonals`/`.deep`; pins for rule-derived
-  valuation, rule sensitivity, and the guard verified BY INJECTION. Out of scope: the search in
-  `choose.ts`, and any numeric tuning of difficulty tiers.
-  docs=the writer amends `docs/DECISIONS.md` row 9 (append-only) and `docs/HOW_WE_DO_IT.md`;
-  the dispatcher owns `docs/BOARD.md`.
-  STEER | 2026-09-27T15:2xZ, while the writer was in flight (steered, not restarted): the guard
-  was WIDENED because scoping it to `ai/` was arbitrary — `.neighbors`/`.diagonals` member
-  access must ERROR in ALL non-test source (`files: ['src/**/*.ts']` with
-  `ignores: ['**/*.test.ts']`), so the rule's geometry keeps exactly one home. `.deep` stays
-  banned inside `src/game/ai/**` ONLY: it is a legitimate DISPLAY flag read by the view (11
-  sites) and tests legitimately assert geometry (18 assertions today), so a repo-wide `.deep`
-  ban would red on correct code. The writer must also report the obligation-4 `COPIES:` line,
-  and must not touch `BoardView.ts`/`engine.test.ts` (the dispatcher folded copies there).
-  Ledger row for this slice: 9.
+LANDED | row=3 | sha=29f78f6 | verify=DISPATCHER'S OWN, not the writer's: (1) rebased the writer's
+  824bb4a onto main and ran `npm run gate` at 29f78f6 → exit 0 FULL GREEN, typecheck 0 · lint 0 ·
+  67 tests / 12 files · build 0 (raw log .gate-logs/gate-20260927T152832Z-3875635.log on the
+  merged main tip); (2) MY OWN differential — reverted `ai/evaluate.ts` to base 47b7742 and ran
+  the writer's two pins: BOTH FAIL (`expected 18 not to be 18`; pick `'0,0'` vs `'2,1'`), so the
+  pins are genuine discriminators, not tautologies; (3) MY OWN injection at a location the writer
+  did not use — `.neighbors` into `src/game/engine/move.ts` → `npx eslint` exit 1 with the
+  geometry message; (4) tree restored byte-identical (`git status --porcelain` empty) before the
+  merge. Also measured: `ai/` TESTS are held to the stricter bar too (a `.deep` read in
+  `ai/*.test.ts` errors), the one deliberate deviation from the repo-wide test exemption.
+  | retired=worktree /home/administrator/projects/BlasterMaster/worktrees/ai-rule-derived ·
+  branch feat/ai-rule-derived (deleted with `-d`, which only succeeds when it is merged; proved
+  gone: `git worktree list` shows only the main tree, `git branch -a` only main) · writer session
+  session-f65b232e finished and sent no further work
+  | note=OWNER'S ORDER, verbatim: "AI should work on a more fundamental level if it does not do so
+  now. The same routines that steer how spread and explosions work should also be used by the AI
+  so that changes here will automatically be used by the AI (avoid any code duplications, make
+  everything resilient to code changes)".
+  WHAT LANDED: `evaluate.ts` now scores per owned cell from `pressure = count / threshold(cell)`
+  and `reach = blastTargets(cell).length` (plus territory/tokens/nearCritical), with the base
+  weights kept and pressure 40/48 dominating reach 1/2 so a deeper threshold strictly lowers the
+  score at every legal count. Two eslint `no-restricted-syntax` blocks make the geometry
+  single-site: repo-wide non-test `.neighbors`/`.diagonals` (exempting their one home
+  `src/game/engine/board.ts`) and a LAST ai-scoped block that adds `.deep`.
+  COPIES: 1 — checked, no duplication (writer's line, and my own grep confirms: the only
+  non-test `.neighbors`/`.diagonals` reads are the 4 inside `engine/board.ts`).
+  THE BRIEF WAS WRONG, and that is recorded as the dispatcher's error: the pins as I worded them
+  were ALREADY TRUE at base (`nearCriticalCount`→`isNearCritical`→`threshold`, and pick
+  differences exist at base because `choose.ts` simulates through `applyTurn`), so a literal
+  reading of my brief would have produced two tests that guard nothing. The writer proved it,
+  reported BLOCKED-style evidence instead of implementing the wording, and rebuilt both pins into
+  real discriminators — my differential above confirms the rebuild. `isCritical(cell)` was also
+  unusable as a feature term (an ongoing board never has critical cells), so the sanctioned
+  vocabulary in the guard messages names it but the features do not use it.
+  docs=docs/DECISIONS.md row 9 (append-only, rows 1-8 untouched) + docs/HOW_WE_DO_IT.md (index
+  row, the AI-derives-from-primitives pattern, the anti-pattern line) — all in the same commit.
 
 LANDED | row=6 | sha=5ec65c3 | verify=DISPATCHER'S OWN: `npm run gate` exit 0 FULL GREEN at
   5ec65c3 — typecheck 0 · lint 0 · 65 tests / 12 files · build 0, raw log
@@ -146,6 +151,14 @@ LANDED | row=5 | sha=47b7742 | verify=DISPATCHER'S OWN: `git push origin HEAD:ma
   so nothing shipped to the live site. | retired=nothing | note=owner's answer to the fork:
   "Push both landings to origin/main (Recommended)".
 
+TRAP | The eslint geometry guard is SYNTACTIC, not semantic. It errors on `.neighbors`/`.diagonals`
+  member reads in non-test source, so it catches a re-derived threshold only when the copy READS
+  the arrays. A hardcoded rule NUMBER reads nothing and passes CLEAN — measured 2026-09-27 by
+  injection: `const probeC = (deep: boolean) => (deep ? 8 : 4);` in `src/game/view/layout.ts` →
+  `npx eslint` exit 0. That is exactly the class the row=6 audit found in `BoardView` and folded
+  to `threshold(cell)`. RULE: the guard is one layer, never the answer — a rule NUMBER in a view
+  is a bug to fold, and the per-idea pin is what closes it.
+
 TRAP | An atomic mkdir lock acquires ONCE. The gate's first ever run re-attempted `mkdir` right
   after a successful acquisition, failed on its OWN lock, reported a phantom `LOCK RACE`, and
   exited 9 — and because that exit preceded the `trap`, it left an ownerless
@@ -179,6 +192,13 @@ TRAP | Evidence in /tmp is not durable: Campaigner measured /tmp as a per-call t
   Echoing a log with tail/head is display only — the exit code comes from the step, never
   from a pipeline.
 
+GUARD | geometry-has-one-home | `eslint.config.js` errors on `.neighbors`/`.diagonals` member reads
+  in ALL non-test source except their one home `src/game/engine/board.ts`, and additionally on
+  `.deep` inside `src/game/ai/**` (that block is LAST, so it wins for ai files — including
+  `ai/*.test.ts`, a deliberate deviation: ai tests are held to the stricter bar too). Verify by
+  injection: `.neighbors` into any other src file → lint exit 1; `.deep` in a non-ai view file →
+  clean (it is a display flag the view may read); `.deep` in `ai/*.test.ts` → error. Known limit:
+  hardcoded rule NUMBERS are not caught (see the TRAP on the syntactic guard).
 GUARD | gate-lock | `scripts/gate.sh` takes an ATOMIC mkdir lock at
   `<repo>/.blastermaster-lock`, derived from the git COMMON dir so the main tree and every
   worktree resolve the same path. Verify: run it twice — the second prints `LOCK HELD` and
