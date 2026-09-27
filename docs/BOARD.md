@@ -34,7 +34,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: df635b7aba63b0d5c170e04ba76a4102fa4fab25 · 2026-09-27T16:3xZ
+reconciled: 56729b83db6e6d079babaef117b0dc9321083c1d · 2026-09-27T16:4xZ
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -208,6 +208,43 @@ QUEUE | row=9 | FOLD THE SMALL `TitleScene.ts` DUPLICATION the tripwire can see 
   worth a slice — but it IS a real copy, so it is recorded rather than blessed. Extract one private
   method and reuse it. Reserved; NOT ordered; it TOUCHES UI code, so it wants the owner's eyes on
   the panels afterwards like any TitleScene change.
+
+QUEUE | row=12 | THE EATER AGENT — OWNER'S IDEA, design stage, NOTHING DISPATCHED. Verbatim:
+  "How about cracking a wall reveals an eater agent. The eaters turn is right after the turn of the
+  player who destroyed the wall. It moves to the cell which has the most tokens next to it (not
+  diagonally) and consumes the tokens. Once it has enough tokens to explode, it will (like a deep
+  cell), spreading neutrally owned cells. Its movement is deterministic. If no cell around has
+  tokens, it stays. It scans clockwise (so in a tie, it goes to the cell that it scanned first).
+  This introduces the possibility of a tie, if an eater explosion covers the whole board."
+  WHY IT IS NOT A WALL TWEAK — the first NON-PLAYER ACTOR, and it breaks four load-bearing
+  invariants, each verified in the current engine:
+  (a) A THIRD OWNERSHIP STATE. "Neutrally owned cells" means tokens with no player. Today
+      `engine.test.ts` asserts `count > 0 ⟺ owner !== null` (lines 534-536, 563) and
+      `occupiedCount`/`tokenCount` filter `owner === player` (`board.ts`), while `legalMoves`
+      allows placing onto `owner === null` — so neutrals would be harvestable by EITHER player
+      (1 tempo claims a whole neutral pile). Model it as an explicit owner value, never as
+      `owner: null` with tokens.
+  (b) THE WIPE CONDITION. `move.ts:133` awards a wipe when `occupiedCount(opponent) === 0` — so an
+      eater that neutralises a player's last cells would HAND THE MOVER A WIN. Must be restated
+      before any eater lands.
+  (c) ONE OWNER PER WAVE. `applyWave` colours every receiver with the mover (`move.ts:63`), so a
+      neutral cell exploding mid-cascade would spray the PLAYER'S colour; the wave needs an explicit
+      owner to spread with, not the mover.
+  (d) THE CYCLE GUARD. `hashBoard` is cells + wall ids only (`board.ts:264`); the eater's position
+      and hoard must enter it or two different boards hash the same and the cascade's repeat guard
+      lies. `Outcome` (ongoing/win/draw) can reuse `draw`, but `WinCause` cannot express "the eater
+      did it".
+  OPEN FORKS FOR THE OWNER: (1) activation — immediately on reveal and thereafter once per round
+  after the revealer, or once per round for both players? As stated, the player who cracked the wall
+  permanently hosts the eater's slot, which is an odd asymmetry. (2) APPETITE — it eats the LARGEST
+  adjacent stack, which is exactly the cell a chain-reaction game is ABOUT, so it may starve the
+  core verb; alternatives: eat one token, or ignore cells at/above threshold. (3) EAT = ABSORB vs
+  DESTROY — absorbing keeps tokens conserved and gives the eater a readable counter ("6 of 8" → it
+  blows next turn); destroying them is invisible and unbounded. (4) multiple eaters and their order.
+  (5) the tie condition needs a precise definition ("covers the whole board" = every cell neutral?).
+  STAGING PROPOSED: slice 1 = explicit neutral owner + one eater + reveal + absorb + grow + neutral
+  spread + hash/outcome/preview on ONE new plate glyph and ONE map; slice 2 = the tie condition,
+  multiple eaters, and the "it eats HERE next" prediction ghost the player needs to plan around.
 
 QUEUE | row=4 | DEEP FIELD ships in SKIRMISH only. A campaign mission for it needs a tenth
   mission and the ops grid has the same 3x3 capacity limit. Reserved, NOT ordered.
