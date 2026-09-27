@@ -10,6 +10,7 @@ import { browserStore, recordStars } from '../game/ops/progress';
 import { requirePlaySceneData, type PlaySceneData } from '../game/ops/session';
 import { addTurn, awardStars, emptyStats, type MatchStats, type StarAward } from '../game/ops/stats';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, ownerLook, playerTheme, theme } from '../game/theme';
+import { eaterPlan, type EaterCue } from '../game/view/eaterView';
 import { previewPlacement } from '../game/view/preview';
 import { BoardView } from './play/BoardView';
 import { flyToken } from './play/fx';
@@ -209,16 +210,38 @@ export class PlayScene extends Phaser.Scene {
     if (result.waves.length >= 2) {
       this.flashBanner(`CASCADE  ×${result.waves.length}`);
     }
-    for (const [index, wave] of result.waves.entries()) {
-      playSound('wave', index);
-      await this.playWave(wave, index);
+    // The ORDER is the pure `eaterPlan`'s job. The engine hands back every wave and
+    // then every eater step, which is not the order the player watches: the plan
+    // interleaves them so a body glides before the blast that consumes it and rises
+    // out of its square before its first move. Each cue is awaited, so no two
+    // eater animations ever overlap each other or a wave.
+    for (const cue of eaterPlan(result.waves, result.eaters, result.game.board)) {
+      await this.playCue(cue, result);
     }
-    // An eater's move carries no wave: it leaves and arrives between waves, so the
-    // square it took is what the player needs to see.
-    for (const step of result.eaters) {
-      if (step.to !== step.from) {
-        this.boardView.pulseCell(step.to);
+  }
+
+  private async playCue(cue: EaterCue, result: TurnSuccess): Promise<void> {
+    switch (cue.kind) {
+      case 'wave': {
+        const wave = result.waves[cue.index];
+        if (wave !== undefined) {
+          playSound('wave', cue.index);
+          await this.playWave(wave, cue.index);
+        }
+        return;
       }
+      case 'emerge':
+        await this.boardView.emergeEater(cue.at, cue.shell);
+        return;
+      case 'move':
+        await this.boardView.glideEater(cue.from, cue.to, cue.shell);
+        return;
+      case 'hold':
+        this.boardView.holdEater(cue.at, cue.shell);
+        return;
+      case 'detonate':
+        this.boardView.consumeEater(cue.at);
+        return;
     }
   }
 

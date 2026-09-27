@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Owner } from '../../game/engine/types';
-import { NEUTRAL_LOOK, ownerLook } from '../../game/theme';
+import { NEUTRAL_LOOK, ownerLook, theme } from '../../game/theme';
 
 export const FX_TEX = {
   coreA: 'fx-core-a',
@@ -9,8 +9,15 @@ export const FX_TEX = {
   glowA: 'fx-glow-a',
   glowB: 'fx-glow-b',
   glowNeutral: 'fx-glow-neutral',
+  /** One token inside an eater's shell: the eater hue, which no pile shares. */
+  eaterOrb: 'fx-eater-orb',
   spark: 'fx-spark',
 } as const;
+
+/** The eater's hoard spheres. */
+export function eaterOrbTexture(): string {
+  return FX_TEX.eaterOrb;
+}
 
 /** One home for "which texture does this owner wear": core and glow only differ in key set. */
 function ownerTexture(owner: Owner, forA: string, forB: string, forNeutral: string): string {
@@ -40,6 +47,7 @@ export function ensureFxTextures(scene: Phaser.Scene): void {
   paintGlow(scene, FX_TEX.glowA, 0xffc56a);
   paintGlow(scene, FX_TEX.glowB, 0x7af0ff);
   paintGlow(scene, FX_TEX.glowNeutral, NEUTRAL_LOOK.glow);
+  paintCore(scene, FX_TEX.eaterOrb, theme.colors.eater, 0xf2ffb8, false);
   paintSpark(scene, FX_TEX.spark);
 }
 

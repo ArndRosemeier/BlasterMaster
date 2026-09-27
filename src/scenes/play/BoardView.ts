@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import {
   boardCells,
   boardPlates,
+  deepDegree,
   getCell,
   isArmoredPlate,
   isCrackedPlate,
@@ -21,8 +22,21 @@ import {
   reachPips,
   type BoardLayout,
 } from '../../game/view/layout';
+import {
+  eaterShell,
+  shellOffsets,
+  SHELL_SLOTS,
+  type EaterShell,
+} from '../../game/view/eaterView';
 import type { PlacementPreview } from '../../game/view/preview';
-import { coreTexture, ensureFxTextures, glowTexture, spawnBlast } from './fx';
+import {
+  coreTexture,
+  eaterOrbTexture,
+  ensureFxTextures,
+  glowTexture,
+  spawnBlast,
+  spawnImpact,
+} from './fx';
 
 type CoreVisual = {
   readonly root: Phaser.GameObjects.Container;
@@ -62,11 +76,33 @@ type PlateVisual = {
   readonly seam: Phaser.GameObjects.Graphics;
 };
 
-/** The eater itself: a body carrying its hoard count, on its own square. */
+/**
+ * The eater itself: a body whose INSIDES show the hoard as spheres. There is no
+ * text on it — fullness is sphere count plus a pulse whose rate and amplitude
+ * scale with `hoard / deepDegree(square)`, so a body about to fire is unmistakable
+ * and a corner (threshold 3) reads fuller than the middle (threshold 8) at the
+ * same count.
+ */
 type EaterVisual = {
   readonly root: Phaser.GameObjects.Container;
-  readonly count: Phaser.GameObjects.Text;
+  readonly glow: Phaser.GameObjects.Image;
+  readonly body: Phaser.GameObjects.Arc;
+  readonly maw: Phaser.GameObjects.Arc;
+  /** A fixed pool of `SHELL_SLOTS` orbs, never re-allocated. */
+  readonly spheres: readonly Phaser.GameObjects.Image[];
+  shell: EaterShell;
+  /** The shared 16ms tick owns the pulse; this is off while a one-shot tween runs. */
+  pulsing: boolean;
 };
+
+/** Blend two 0xRRGGBB colours. Pure arithmetic, so no Phaser colour object per paint. */
+function mixColours(from: number, to: number, ratio: number): number {
+  const t = Math.max(0, Math.min(1, ratio));
+  const red = Math.round(((from >> 16) & 0xff) * (1 - t) + ((to >> 16) & 0xff) * t);
+  const green = Math.round(((from >> 8) & 0xff) * (1 - t) + ((to >> 8) & 0xff) * t);
+  const blue = Math.round((from & 0xff) * (1 - t) + (to & 0xff) * t);
+  return (red << 16) | (green << 8) | blue;
+}
 
 /** How a plate is painted: its fill, stroke and how loudly the seam shows. */
 type PlateStyle = {
@@ -93,6 +129,7 @@ export class BoardView {
   private currentPlayer: PlayerId = 'a';
   private ghosts: Phaser.GameObjects.GameObject[] = [];
   private spin = 0;
+  private clock = 0;
   private readonly spinEvent: Phaser.Time.TimerEvent;
 
   public constructor(
@@ -120,7 +157,12 @@ export class BoardView {
       delay: 16,
       loop: true,
       callback: () => {
+        // ONE shared 16ms tick drives every ambient animation. A per-eater timer
+        // would be fine, but a per-frame allocation per sphere would not, and a
+        // five-plate map can hold five bodies at once.
+        this.clock += this.scene.game.loop.delta / 1000;
         this.spinCores();
+        this.pulseEaters();
       },
     });
   }
@@ -618,44 +660,221 @@ export class BoardView {
   }
 
   /**
-   * The eaters on the board, one body per eater, carrying its hoard count. It is
-   * derived from `board.eaters` every time the board changes, so a move, a reveal
-   * and a death all read the same way.
+   * Reconciles the eater bodies with the board: a body whose square no longer
+   * holds an eater is gone, and a surviving body's shell is refreshed from the
+   * square's count and its own `deepDegree`. It deliberately does NOT create a
+   * body — a reveal is presented by `emergeEater`, so an eater can never simply
+   * appear on the square its plate fell to.
    */
   private syncEaters(board: Board): void {
     const living = new Set(board.eaters.map((eater) => eater.at));
     for (const [id, visual] of [...this.eaters]) {
-      if (!living.has(id)) {
-        visual.root.destroy(true);
-        this.eaters.delete(id);
+      if (living.has(id)) {
+        continue;
       }
+      this.scene.tweens.killTweensOf(visual.root);
+      visual.root.destroy(true);
+      this.eaters.delete(id);
     }
     for (const eater of board.eaters) {
-      let visual = this.eaters.get(eater.at);
+      const visual = this.eaters.get(eater.at);
       if (visual === undefined) {
-        visual = this.createEaterView(eater.at);
-        this.eaters.set(eater.at, visual);
+        continue;
       }
-      visual.count.setText(String(getCell(board, eater.at).count));
+      const cell = getCell(board, eater.at);
+      this.paintEaterShell(visual, eaterShell(cell.count, deepDegree(cell)));
     }
   }
 
-  private createEaterView(at: CellId): EaterVisual {
+  /**
+   * A plate just fell here, so the eater RISES out of the square: it surges up
+   * from beneath, scales and fades in, and lands with a ground impact. It runs
+   * before the body's first move — `eaterPlan` orders that — and never as an
+   * instant appearance.
+   */
+  public emergeEater(at: CellId, shell: EaterShell): Promise<void> {
+    const existing = this.eaters.get(at);
+    if (existing !== undefined) {
+      this.paintEaterShell(existing, shell);
+      return Promise.resolve();
+    }
+    const visual = this.buildEaterVisual(at);
+    this.eaters.set(at, visual);
+    this.paintEaterShell(visual, shell);
+    const rise = this.layout.cellSize * 0.62;
+    visual.root.setAlpha(0);
+    visual.root.setScale(0.2);
+    visual.root.y += rise;
+    visual.pulsing = false;
+    return new Promise((resolve) => {
+      this.scene.tweens.add({
+        targets: visual.root,
+        alpha: 1,
+        scale: 1,
+        y: visual.root.y - rise,
+        duration: 340,
+        ease: 'Back.Out',
+        onComplete: () => {
+          visual.pulsing = true;
+          spawnImpact(this.scene, visual.root.x, visual.root.y, theme.colors.eater);
+          resolve();
+        },
+      });
+    });
+  }
+
+  /**
+   * One orthogonal step, in a STRAIGHT axis-aligned line: a single tween drives
+   * both coordinates, so the motion can never read as the diagonal travel the
+   * rule forbids — and a step that did not move (`from === to`) never gets here.
+   */
+  public glideEater(from: CellId, to: CellId, shell: EaterShell): Promise<void> {
+    const visual = this.eaters.get(from);
+    if (visual === undefined) {
+      return Promise.resolve();
+    }
+    const dest = this.squareCenter(to);
+    this.eaters.delete(from);
+    this.eaters.set(to, visual);
+    this.paintEaterShell(visual, shell);
+    const distance = Phaser.Math.Distance.Between(visual.root.x, visual.root.y, dest.x, dest.y);
+    return new Promise((resolve) => {
+      this.scene.tweens.add({
+        targets: visual.root,
+        x: dest.x,
+        y: dest.y,
+        duration: Math.max(150, Math.round(distance * 1.7)),
+        ease: 'Sine.InOut',
+        onComplete: () => {
+          resolve();
+        },
+      });
+    });
+  }
+
+  /** A step that found nothing beside it to eat: the body stays, its shell changes. */
+  public holdEater(at: CellId, shell: EaterShell): void {
+    const visual = this.eaters.get(at);
+    if (visual !== undefined) {
+      this.paintEaterShell(visual, shell);
+    }
+  }
+
+  /**
+   * The eater's own detonation consumes it: the body swells into the blast and
+   * fades while its spheres burst outward. It is unregistered at once, so the
+   * board sync that follows cannot present the death as a disappearance.
+   */
+  public consumeEater(at: CellId): void {
+    const visual = this.eaters.get(at);
+    if (visual === undefined) {
+      return;
+    }
+    this.eaters.delete(at);
+    visual.pulsing = false;
+    this.scene.tweens.killTweensOf(visual.root);
+    spawnImpact(this.scene, visual.root.x, visual.root.y, theme.colors.eater);
+    const burst = this.layout.cellSize * 0.66;
+    visual.spheres.forEach((orb, index) => {
+      if (orb.alpha === 0) {
+        return;
+      }
+      const angle = -Math.PI / 2 + (index * Math.PI * 2) / SHELL_SLOTS;
+      this.scene.tweens.add({
+        targets: orb,
+        x: Math.cos(angle) * burst,
+        y: Math.sin(angle) * burst,
+        alpha: 0,
+        duration: 170,
+        ease: 'Cubic.Out',
+      });
+    });
+    this.scene.tweens.add({
+      targets: visual.root,
+      scale: 1.8,
+      alpha: 0,
+      duration: 210,
+      ease: 'Cubic.In',
+      onComplete: () => {
+        visual.root.destroy(true);
+      },
+    });
+  }
+
+  private buildEaterVisual(at: CellId): EaterVisual {
     const pos = this.squareCenter(at);
     const size = this.layout.cellSize;
+    const glow = this.scene.add.image(0, 0, glowTexture('neutral'));
+    glow.setBlendMode(Phaser.BlendModes.ADD);
     const body = this.scene.add.circle(0, 0, size * 0.3, 0x101408, 0.95);
     body.setStrokeStyle(3, theme.colors.eater, 1);
-    const maw = this.scene.add.circle(0, 0, size * 0.12, theme.colors.eater, 0.9);
-    const count = this.scene.add
-      .text(0, size * 0.42, '', {
-        fontFamily: theme.fonts.mono,
-        fontSize: `${Math.max(11, Math.floor(size * 0.2))}px`,
-        color: theme.colors.eaterHex,
-      })
-      .setOrigin(0.5);
-    const root = this.scene.add.container(pos.x, pos.y, [body, maw, count]);
+    const spheres: Phaser.GameObjects.Image[] = [];
+    for (let index = 0; index < SHELL_SLOTS; index += 1) {
+      const orb = this.scene.add.image(0, 0, eaterOrbTexture());
+      orb.setAlpha(0);
+      spheres.push(orb);
+    }
+    const maw = this.scene.add.circle(0, 0, size * 0.1, theme.colors.eater, 0.85);
+    // The maw sits UNDER the spheres: the hoard is the readable thing on the body.
+    const root = this.scene.add.container(pos.x, pos.y, [glow, body, maw, ...spheres]);
     this.layer.add(root);
-    return { root, count };
+    return {
+      root,
+      glow,
+      body,
+      maw,
+      spheres,
+      shell: eaterShell(0, 1),
+      pulsing: true,
+    };
+  }
+
+  /**
+   * The shell's state, drawn: the fixed sphere pool is resized and repositioned,
+   * and the body's hue slides from the eater hue toward the warning hue as the
+   * hoard fills, so a full body wears the warning stroke. Nothing here is
+   * per-frame allocation.
+   */
+  private paintEaterShell(visual: EaterVisual, shell: EaterShell): void {
+    visual.shell = shell;
+    const size = this.layout.cellSize;
+    const hot = mixColours(theme.colors.eater, theme.colors.warning, shell.heat);
+    const radius = size * (shell.spheres >= 6 ? 0.15 : 0.18);
+    const orbSize = size * (shell.spheres >= 6 ? 0.11 : 0.15);
+    const offsets = shellOffsets(shell.spheres, radius);
+    visual.spheres.forEach((orb, index) => {
+      const slot = offsets[index];
+      if (slot === undefined) {
+        orb.setAlpha(0);
+        return;
+      }
+      orb.setPosition(slot.x, slot.y);
+      orb.setDisplaySize(orbSize, orbSize);
+      orb.setAlpha(0.55 + 0.45 * shell.heat);
+    });
+    visual.body.setStrokeStyle(shell.critical ? 5 : 3, hot, 1);
+    visual.body.setFillStyle(shell.critical ? 0x2b2410 : 0x101408, 0.95);
+    const glowSize = size * (0.75 + 0.5 * shell.heat);
+    visual.glow.setDisplaySize(glowSize, glowSize);
+    visual.glow.setTint(hot);
+    visual.glow.setAlpha(0.3 + 0.45 * shell.heat);
+    visual.maw.setFillStyle(hot, 0.85);
+  }
+
+  /**
+   * The ambient pulse, once per shared tick: each eater advances its own phase at
+   * its own `pulseRate`, so a full body throbs fast and deep while an empty one
+   * barely breathes. No allocation, no per-eater timer.
+   */
+  private pulseEaters(): void {
+    for (const visual of this.eaters.values()) {
+      if (!visual.pulsing) {
+        continue;
+      }
+      const wave = Math.sin(this.clock * visual.shell.pulseRate * Math.PI * 2);
+      visual.root.setScale(1 + visual.shell.pulseDepth * wave);
+      visual.glow.setAlpha(0.3 + 0.45 * visual.shell.heat + 0.15 * wave);
+    }
   }
 
   private paintSockets(visual: CellVisual, cell: CellState): void {
