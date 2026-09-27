@@ -130,7 +130,7 @@ say "host: load=$(cut -d' ' -f1-3 /proc/loadavg) memAvailable=$(awk '/MemAvailab
 # suite — measured 2026-09-27, when a comm filter found zero node processes while the DSH
 # web server and OpenClaw were both running. Anchor on the first argv token instead, and
 # count browsers by comm (which cannot self-match the shell running the audit).
-SUITES="$(ps -eo pid=,etimes=,args= | awk '$4 ~ /(^|\/)node$/ && /vitest|vite/ {printf "%s(%ss) ", $1, $2}')"
+SUITES="$(ps -eo pid=,etimes=,args= | awk '$3 ~ /(^|\/)node$/ && /vitest|vite/ {printf "%s(%ss) ", $1, $2}')"
 BROWSERS=""
 for name in chrome chromium headless_shell playwright puppeteer; do
   n="$(ps -eo comm= | grep -c "^$name$" || true)"

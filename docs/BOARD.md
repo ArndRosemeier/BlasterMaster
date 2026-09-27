@@ -389,6 +389,13 @@ TRAP | The subpath build is NOT the default build. `vite.config.ts` defaults `BL
   `docs/HOW_WE_DO_IT.md` had this backwards until 2026-09-27. RULE: only `npm run publish` builds
   for the host, and it refuses a build whose entry does not carry the subpath.
 
+TRAP | A BLIND GUARD PRINTS THE SAME "none" AS A CLEAN BOX. The process audit's first version
+  indexed the wrong argv field, so it could never match: it reported `suites=none` WHILE a fake
+  suite was running, which reads exactly like an idle host. RULE: a guard that watches for
+  something must be proven by INJECTING that thing and watching the guard see it, then reaping it —
+  "it printed none" is not evidence that nothing is there, only that it printed none. Measured
+  2026-09-27, caught by the injection and by nothing else.
+
 TRAP | A CASCADE TERMINATES ONLY BECAUSE THE HASH REFLECTS THE STATE. An injection that lets state
   GROW without bound changes `hashBoard` every wave, so the repeat guard in `applyMove` never fires
   and the cascade never terminates. Measured 2026-09-27 during the armoured-plate pins: an injection
@@ -456,14 +463,17 @@ GUARD | geometry-has-one-home | `eslint.config.js` errors on `.neighbors`/`.diag
   injection: `.neighbors` into any other src file → lint exit 1; `.deep` in a non-ai view file →
   clean (it is a display flag the view may read); `.deep` in `ai/*.test.ts` → error. Known limit:
   hardcoded rule NUMBERS are not caught (see the TRAP on the syntactic guard).
-GUARD | process-audit-that-can-see | after every landing (and after any turn that died) the
-  reconciler lists live suite workers and browsers, because a turn that ends does not kill its
-  processes and the box is shared. It anchors suite detection on the FIRST ARGV TOKEN
-  (`ps -eo pid=,etimes=,args=` with the node prefix), NOT on `comm`: on this host a node process
-  reports `comm=MainThread`, so a comm-based scan finds ZERO node processes while the DSH web
-  server and OpenClaw are running — measured 2026-09-27. Browsers are counted by `comm`, which
-  cannot self-match the auditing shell. Verify: run `npm run board` and see the audit line;
-  a killed-but-lingering worker or a headless browser tree must appear there.
+GUARD | process-audit-that-can-see | after every landing (and after any turn that died) the reconciler
+  lists live suite workers and browsers: a turn that ends does not kill its processes and the box is
+  shared. Detection anchors on the FIRST ARGV TOKEN (`ps -eo pid=,etimes=,args=`, so the token is
+  `$3`), never on `comm` — on this host a node process reports `comm=MainThread`, so a comm-based
+  scan finds ZERO node processes while the DSH web server and OpenClaw run (measured 2026-09-27).
+  Browsers are counted by `comm`, which cannot self-match the auditing shell. THE FIRST VERSION OF
+  THIS GUARD WAS BLIND: it indexed `$4`, so it matched nothing and printed `suites=none` — output
+  identical to a clean box — and it was caught only by injecting a fake suite, never by reading it.
+  VERIFIED AFTER THE FIX, by injection: with a fake `node … vitest-fake-probe` alive the audit
+  printed `suites=<pid>(1s)`, the gate's diagnostic listed the same pid and NOT the auditing shell,
+  and after reaping it by explicit PID the audit returned to `suites=none browsers=none`.
 GUARD | heavy-check-overlap | the gate lock is honoured — it resolves to the same path from the
   main tree and every worktree (measured: `--git-common-dir` is `.git` in the main tree and the
   absolute path in a worktree, so both yield `<repo>/.blastermaster-lock`) — but a DIRECT test run
