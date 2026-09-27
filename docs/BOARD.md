@@ -36,7 +36,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: 7c1c475cf5b343b69e2aad918fdc7877f6b3ee6c · 2026-09-27T19:4xZ
+reconciled: 5cf07f6d499b740e27884d394c71f53db7afe17c · 2026-09-27T20:09Z
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -194,24 +194,41 @@ LANDED | row=19 | sha=a0bdd42 | verify=DISPATCHER'S OWN: my own `npm run gate` o
   verified; the LOOK is the owner's, and it is PUBLISHED for him.
 
 
-IN-FLIGHT | row=20 | writer=session-6da12a2c-ed32-4204-9902-f0a72868317b
-  | worktree=/home/administrator/projects/BlasterMaster/worktrees/ops-campaign
-  | branch=feat/ops-campaign | base=7c1c475 | dispatched_by=session-1e324382
-  | state=dispatched 2026-09-27T19:4xZ, deps installed, no commit yet
-  | note=OWNER'S ORDER, verbatim: "ok, works. Now we need all these maps in operations and a quick
-  brief for new mechanics when they are introduces, starting with the first mission."
-  WHAT THE DISPATCHER MEASURED FIRST: of twelve maps exactly THREE have no mission — `deep` (DEEP
-  FIELD), `bulkhead` (BULKHEAD), `nest` (NEST) — and the ops grid is a hardcoded 3-column layout
-  whose fourth row would land at y≈664, off the 720 canvas and under the BACK button, so twelve
-  cards need the SAME tested `cardGrid` the skirmish panel already uses (>9 → four columns). The
-  slice therefore: appends three missions as 10-12 (deep geometry → plate durability → a new actor
-  is the intended ramp) with PLACEHOLDER `swiftMoves`/`cascadeWaves` explicitly marked unproven (the
-  measurement is row=8); adds a short mechanic BRIEF set only on the mission that FIRST introduces a
-  mechanic — `op-spark` for the core rules (the owner's "starting with the first mission"),
-  `op-airlock` for plates, `op-deep` for deep cells, `op-armor` for armoured plates, `op-nest` for
-  eaters — surfaced at mission start in PlayScene and as a card tag; and makes the owner's ask
-  UNFALSIFIABLE with a pin that every map in `MAP_LIST` has a mission, plus a pin that each mechanic
-  is briefed exactly once.
+LANDED | row=20 | sha=5cf07f6 | verify=DISPATCHER'S OWN: (1) my own `npm run gate` on the
+  rebased tree and on the merged main tip → exit 0 FULL GREEN, typecheck 0 · lint 0 · **145 tests /
+  18 files** · build 0 (logs …T200853Z-4064712.log, …T200952Z-4072524.log); (2) MY three injections,
+  each restored BYTE-IDENTICAL from an out-of-tree copy: giving `op-deep` a map that already has a
+  mission reds exactly "gives every shipped map at least one campaign mission" (the owner's ask,
+  made unfalsifiable); duplicating the core-rules brief onto another mission reds THREE pins
+  (exactly-once, the ordered list, and "opens the campaign with the core rule and never repeats
+  it"); forcing the ops panel back to 3 columns reds "keeps all twelve OPERATIONS missions on screen
+  as a 4x3 grid"; (3) MY content check of all five briefs against the engine's actual rules — every
+  claim holds (detonate at neighbour count / pips are the reach / leftover holds; a blast beside a
+  plate drops it and EVERY fallen plate frees an eater; deep cells count diagonals, corner 3 interior
+  8, and fire into them; armoured plates crack then drop; an eater eats the biggest pile beside it,
+  detonates at the deep degree of its square, floods neutral and is gone).
+  | retired=worktree /home/administrator/projects/BlasterMaster/worktrees/ops-campaign · branch
+  feat/ops-campaign (`-d`, merged; only the main tree remains) · writer session 6da12a2c finished
+  (and deleted under subagent hygiene) · host audit after: suites=none browsers=none
+  | note=WHAT LANDED: TWELVE missions cover all TWELVE maps — `op-deep` (DEEP FIELD), `op-armor`
+  (BULKHEAD), `op-nest` (NEST) appended as 10-12, deep geometry → plate durability → a new actor.
+  A mechanic BRIEF is set only on the mission that FIRST introduces it — `op-spark` (mission 1)
+  teaches THE CORE RULE exactly as the owner asked, then `op-airlock` PLATES, `op-deep` DEEP CELLS,
+  `op-armor` ARMORED PLATES, `op-nest` EATERS — surfaced by `missionIntro` at mission start and by
+  `missionCardTag` on the card as `TIER · MECHANIC`. The ops panel's hardcoded 3-column grid was
+  folded into `menuGrid`/`menuColumns` reusing the tested `cardGrid`, which ALSO removed the skirmish
+  panel's copy of the `>9 ? 4 : 3` rule (COPIES 2→1). PLACEHOLDER thresholds — 28/4, 32/4, 34/4,
+  chosen by analogy and EXPLICITLY UNPROVEN; no play-test against the current AI; the existing nine
+  missions were not touched (row=8 owns the measurement).
+  UNVERIFIED (owner's eyes, and PUBLISHED for them): the four-column OPERATIONS look and card
+  density, whether `TIER · MECHANIC` stays legible in a 296px card, whether the banner is readable
+  before its ~1.2s fade, and whether the two-line `BRIEF · …` coach line at y=692 clears the board.
+  The writer's brief-corrections are recorded as minor and non-blocking: only missions 7-9 have
+  all-caps coaches (the first six are sentence case, so the new ones match the later voice); "a brief
+  with no map" cannot compile under `Mission.mapId: MapId`, so it was implemented and pinned as the
+  runtime twin `campaignProblems`; and the ops `topY` (238) differs from the skirmish one (258), so
+  `cardGrid` could not take a single shared options object.
+
 
 LANDED | row=1 | sha=ab2b552 | verify=DISPATCHER'S OWN full loop on exactly this tree:
   typecheck exit 0 · lint exit 0 · 65 tests / 12 files · build exit 0. `scripts/gate.sh` exists
@@ -534,8 +551,9 @@ LANDED | row=16 | sha=b102c38 | verify=DISPATCHER'S OWN, by injection both ways 
   run and a re-apply; the fix is now a TRAP below.
 
 
-QUEUE | row=4 | DEEP FIELD ships in SKIRMISH only. A campaign mission for it needs a tenth
-  mission and the ops grid has the same 3x3 capacity limit. Reserved, NOT ordered.
+CLOSED | row=4 | A DEEP FIELD CAMPAIGN MISSION — SUPERSEDED BY row=20. The owner's "all these maps
+  in operations" produced it together with the other two new maps, so this fork is resolved: DEEP
+  FIELD is mission 10 of twelve. Kept so a successor does not re-open it as outstanding work.
 
 LANDED | row=5 | sha=47b7742 | verify=DISPATCHER'S OWN: `git push origin HEAD:main` printed
   `62f7c29..47b7742 HEAD -> main`, and `git rev-parse HEAD origin/main` returned the SAME sha
@@ -683,12 +701,13 @@ RECOVERY | A successor starts here: (1) `npm install`, (2) `npm run board` (reco
   Landings, oldest first: `ab2b552` deep cells · `b475fd1` the process · `5ec65c3` duplication folds ·
   `29f78f6` AI rule-derivation · `b20f5a6` the tripwire · `871875a` armored plates · `ea3018d` the
   eater · `b102c38` the stalemate rule + AI-stays-blind · `310cdbc` every fallen plate reveals an
-  eater · `a0bdd42` eater presentation (spheres, glide, reveal-before-move). Outstanding owner forks:
-  row=4 (a DEEP FIELD campaign mission). Queued work: row=8 (the AI's calibration debt, GROWN by
-  row=18), row=9 (a small TitleScene fold). CLOSED by owner decision: row=15 (the AI stays blind to
-  eaters). Open verification the OWNER owes himself: the eater/neutral/ghost/map-card LOOK — no
-  browser exists here, so every visual claim in this file is pure maths plus the owner's eyes. No
-  writer worktrees, no writer sessions, one goal — the chief-of-staff goal, paused.
+  eater · `a0bdd42` eater presentation · `5cf07f6` all twelve maps in OPERATIONS + one-shot mechanic
+  briefs. NO OUTSTANDING OWNER FORKS (row=4 was closed by row=20). Queued work: row=8 (the AI's
+  calibration debt, GROWN by row=18 and by the three placeholder thresholds in row=20), row=9 (a
+  small TitleScene fold). CLOSED by owner decision: row=15 (the AI stays blind to eaters). Open
+  verification the OWNER owes himself: every visual claim — no browser exists here, so the LOOK is
+  pure maths plus his eyes. No writer worktrees, no writer sessions, one goal — the chief-of-staff
+  goal, paused.
 ```
 
 ## The gate
