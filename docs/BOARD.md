@@ -395,6 +395,22 @@ SPEC | row=12 | THE EATER AGENT — OWNER'S DESIGN, rules settled, dispatched as
   `hashBoard` (the dispatcher's alternative, clockwise-from-north order derived from the board,
   was rejected in favour of the player-intuitive one).
 
+QUEUE | row=17 | HOUSINGS ARE INDISTINGUISHABLE FROM ARMOURED PLATES — found when the owner
+  reported "I destroyed a wall and did not see any eater spawn" (2026-09-27). The mechanic is
+  intact: only a `@` HOUSING reveals an eater, housings exist on exactly ONE map (NEST, two of
+  them), and a housing needs TWO detonations. But nothing tells the player that:
+  (a) the theme has `wall`, `wallArmor` and `wallCracked` and NO housing look, and BoardView never
+      mentions `housing` — so an unbroken housing is drawn IDENTICALLY to an empty armoured plate;
+  (b) a housing IS an armoured plate (`maps.ts` pushes housings into `armored` AND `housing`), so
+      NEST's map card reads `· 2 ARMORED` — the same word BULKHEAD uses for its three EMPTY
+      two-hit plates — which actively teaches the wrong expectation;
+  (c) the card has no `HOUSING` line at all.
+  FIX SKETCH (small, view + theme + card): a distinct housing treatment that survives the
+  owner/hover/crack/near-critical hues the way the deep corner cuts do (a hatch pattern or a
+  third hue, not only a colour), a `· N HOUSING(S)` line on the map card, and the same distinction
+  in the title schematic. Reserved; NOT ordered. The owner's words and the reproduction are in the
+  report that follows.
+
 CLOSED | row=15 | TEACH THE AI ABOUT EATERS — the owner decided AGAINST it, verbatim: "I think its
   too complicated to do this right, so... let the AI ignore it and stay stable." The AI stays
   blind to eaters on purpose (it neither baits nor dodges one, and cannot read a `@` housing as a
