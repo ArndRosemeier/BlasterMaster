@@ -288,15 +288,24 @@ QUEUE | row=12 | THE EATER AGENT — OWNER'S IDEA, design stage, NOTHING DISPATC
   (i) THE TIE — after the eater's detonation and its neutral cascade SETTLE, if NO cell is owned by
   either player, the game is a DRAW. Reuses `Outcome.draw`; it must be checked after the eater
   phase, and it is also the safety valve that stops an all-neutral board from locking up.
-  (ii) NEUTRAL PILES ARE **INERT** — a cell neutralised by the eater is NOT a legal placement
-  target until it is empty. This REVERSES the dispatcher's recommendation (harvest with one tempo)
-  and it is recorded as the owner's choice, not as a default. It costs ZERO code: `legalMoves`
-  already tests `owner === null || owner === player`, so a neutral owner is excluded by
-  construction. CONSEQUENCES the owner should see: the flood becomes a barrier rather than a
-  bounty; a neutral pile BELOW its threshold never clears by itself, so a partial flood PERMANENTLY
-  shrinks the playable board (dead zones), and the only ways out are a cascade that reaches the
-  pile or the all-neutral tie. The eater's own cell is neutral, so it cannot be fed directly — you
-  influence it only by building beside it, which is the bait.
+  (ii) NEUTRAL PILES ARE **INERT** TO PLACEMENT — a neutralised cell is not a legal placement
+  target until it is empty. This REVERSES the dispatcher's harvest recommendation, and it costs
+  ZERO code: `legalMoves` already tests `owner === null || owner === player`, so a neutral owner is
+  excluded by construction.
+  (ii-b) BUT NEUTRALS DO NOT PERSIST — owner, verbatim: "No, neutral cells will not stay neutral.
+  As soon as owned spells EXPLODE on them, they go away." Any explosion that reaches a neutral cell
+  RE-COLOURS it to the spreading owner with +1 token, which is the engine's existing rule
+  (`applyWave` sets `owner: player` on every receiver) — so a neutral pile is cleared by BLASTING
+  it, and a neutral cascade spreads neutral. THE DISPATCHER GOT THIS WRONG: it recorded and
+  reported "a neutral pile below its threshold never clears by itself, so a partial flood
+  PERMANENTLY shrinks the playable board (dead zones)". That contradicts the owner's rule and is
+  retracted here rather than quietly deleted.
+  CORRECTED CONSEQUENCES: the flood is TEMPORARY DENIAL, not scar tissue — either player can
+  reclaim a neutral pile by cascading into it. Blasting a fat neutral pile means INHERITING it at
+  +1, which can arrive critical and detonate in the blaster's own colour: a real gamble, and the
+  counterplay the inert-placement rule would otherwise remove. The all-neutral case is still caught
+  by the tie rule, which is checked right after the eater phase, so nothing locks. The eater's own
+  cell is neutral, so it cannot be fed directly — you influence it by building beside it (the bait).
   (iii) MULTIPLE EATERS activate in REVEAL ORDER, so the reveal order is state and must enter
   `hashBoard` (the dispatcher's alternative, clockwise-from-north order derived from the board,
   was rejected in favour of the player-intuitive one).
