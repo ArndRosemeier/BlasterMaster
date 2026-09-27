@@ -21,6 +21,7 @@ is written here; this file is the authority for what is happening right now.
 | `LANDED` | a verified landing: row, sha, **the dispatcher's own verification numbers**, what was retired, the docs amended |
 | `QUEUE` | requests and known debt not yet dispatched (with a reserved row number) |
 | `SPEC` | a design SETTLED with the owner that a dispatched slice will build (rules in it are requirements, not options) |
+| `CLOSED` | a queued item the owner decided NOT to do, kept so the decision stays visible |
 | `TRAP` | a mistake that actually happened, and the rule that prevents it |
 | `GUARD` | a mechanism protecting the process, and how to verify the mechanism itself |
 | `RECOVERY` | where a successor finds everything it needs |
@@ -35,7 +36,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: ea3018d2cfaa8fd8f29ad07cbbb3c6ee7eebaa33 · 2026-09-27T17:44Z
+reconciled: b102c38a9cd5b02c4a6f3d96046d8055548b3ca4 · 2026-09-27T17:56Z
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -394,19 +395,30 @@ SPEC | row=12 | THE EATER AGENT — OWNER'S DESIGN, rules settled, dispatched as
   `hashBoard` (the dispatcher's alternative, clockwise-from-north order derived from the board,
   was rejected in favour of the player-intuitive one).
 
-QUEUE | row=15 | TEACH THE AI ABOUT EATERS — or decide it should not know. `evaluate.ts` derives
-  from owned piles only, so an eater is invisible to it: it will not bait one into the opponent's
-  half, will not dodge the one beside its own stack, and cannot see that a `@` housing is a bomb with
-  a fuse. Unproven whether that makes the AI weak or merely naive; it does not affect the campaign
-  because NEST is skirmish-only. Reserved; NOT ordered.
+CLOSED | row=15 | TEACH THE AI ABOUT EATERS — the owner decided AGAINST it, verbatim: "I think its
+  too complicated to do this right, so... let the AI ignore it and stay stable." The AI stays
+  blind to eaters on purpose (it neither baits nor dodges one, and cannot read a `@` housing as a
+  bomb with a fuse). Kept here so a successor does not re-raise it as debt: it is a CHOICE. Ledger
+  row 14. If the calibration measurement (row=8) ever shows the naivety costing games, reopen it
+  with that evidence.
 
-QUEUE | row=16 | THE RESIDUAL STALEMATE — THE FORK IS THE OWNER'S. If the player to move owns no
-  square and no square is empty (every square owned by the opponent or neutral), `legalMoves` is empty
-  while the outcome is still `ongoing`: a human has nothing to click and the AI throws. Measured
-  2026-09-27: constructible, and 0 occurrences in 300 random NEST games, so reachability is unproven.
-  Options: (a) that player LOSES (reuse `WinCause: 'wipe'`) — decisive, and "no ground, no move" is a
-  loss in any territorial game; (b) it is a DRAW; (c) allow placing on a neutral pile ONLY when there
-  is no other move (re-opens feeding). Recommendation: (a). Nothing is built until the owner picks.
+LANDED | row=16 | sha=b102c38 | verify=DISPATCHER'S OWN, by injection both ways (my own work, not
+  a writer's): removing the stalemate branch reds exactly "awards the game to the opponent, by
+  wipe, the moment the state exists", and DROPPING THE `hasPlaced` GUARD reds exactly "does NOT
+  award it before the stuck player has ever placed (the opening-bounce guard)". My own gate:
+  exit 0 FULL GREEN, 115 tests / 15 files, log .gate-logs/gate-20260927T175635Z-4001850.log.
+  | retired=nothing (no writer: a ten-line rule in one seam, done by the dispatcher) | note=THE
+  OWNER'S RULING "That player loses" is implemented in `applyTurn`: after a move resolves, if the
+  player who is next to move has NO legal move at all, the mover wins by `wipe`. `legalMoves` is
+  the engine's own predicate — no second definition of "can move" — and the `hasPlaced` guard
+  mirrors the wipe rule's opening-bounce protection. Reachability of the state was never observed
+  (0 in 300 random NEST games) but it was constructible, and it is now decided rather than hung.
+  A DISPATCHER SLIP during this verification, recorded: reverting an injection with
+  `git checkout HEAD -- src/game/engine/game.ts` DELETED the uncommitted implementation, because
+  HEAD did not hold it yet — the very rule the ported brief template states ("restore from HEAD in
+  a trap, or from an out-of-tree copy while the slice is still uncommitted"). It cost one red gate
+  run and a re-apply; the fix is now a TRAP below.
+
 
 QUEUE | row=4 | DEEP FIELD ships in SKIRMISH only. A campaign mission for it needs a tenth
   mission and the ops grid has the same 3x3 capacity limit. Reserved, NOT ordered.
@@ -437,6 +449,13 @@ TRAP | A BLIND GUARD PRINTS THE SAME "none" AS A CLEAN BOX. The process audit's 
   something must be proven by INJECTING that thing and watching the guard see it, then reaping it —
   "it printed none" is not evidence that nothing is there, only that it printed none. Measured
   2026-09-27, caught by the injection and by nothing else.
+
+TRAP | `git checkout HEAD -- <file>` DESTROYS UNCOMMITTED WORK IN THAT FILE. Measured 2026-09-27: a
+  dispatcher reverting an injection that way deleted the stalemate implementation it had just
+  written, because HEAD did not hold it yet; the next gate ran RED against a half-restored tree and
+  the rule had to be re-applied. RULE: while a slice is uncommitted, restore an injection from an
+  OUT-OF-TREE COPY, or commit the implementation first and inject against the commit — HEAD is only
+  a valid restore point once it holds the work.
 
 TRAP | A CASCADE TERMINATES ONLY BECAUSE THE HASH REFLECTS THE STATE. An injection that lets state
   GROW without bound changes `hashBoard` every wave, so the repeat guard in `applyMove` never fires
@@ -545,14 +564,15 @@ GUARD | worktrees-cannot-pollute-the-main-gate | writers work in `worktrees/<sli
   at 66 tests while the main tree stayed GREEN at exactly 65.
 
 RECOVERY | A successor starts here: (1) `npm install` (deps are gitignored), (2) `npm run board` (it
-  reconciles this file, lists the live suite/browser processes and the lock), (3) read
+  reconciles this file and audits the live suite/browser processes and the lock), (3) read
   `docs/DECISIONS.md`, (4) `npm run gate` BEFORE any change, (5) `npm run publish` to make a build
   LIVE — `git push` does not publish. Landings, oldest first: `ab2b552` deep cells · `b475fd1` the
   process · `5ec65c3` duplication folds · `29f78f6` AI rule-derivation · `b20f5a6` the tripwire ·
-  `871875a` armored plates · `ea3018d` the eater. Outstanding owner forks: row=16 (the residual
-  stalemate — needs a rule) and row=4 (a DEEP FIELD campaign mission); queued work: row=15 (AI and
-  eaters), row=8 (AI calibration debt), row=9 (a small TitleScene fold). No writer worktrees, no
-  writer sessions, one goal — the chief-of-staff goal, paused.
+  `871875a` armored plates · `ea3018d` the eater · `b102c38` the stalemate rule + the AI-stays-blind
+  decision. Outstanding owner forks: row=4 (a DEEP FIELD campaign mission). Queued work: row=8 (the
+  AI's calibration debt), row=9 (a small TitleScene fold). CLOSED by owner decision: row=15 (the AI
+  stays blind to eaters). No writer worktrees, no writer sessions, one goal — the chief-of-staff
+  goal, paused.
 ```
 
 ## The gate
