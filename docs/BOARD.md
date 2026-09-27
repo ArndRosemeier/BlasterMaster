@@ -269,12 +269,12 @@ QUEUE | row=12 | THE EATER AGENT — OWNER'S IDEA, design stage, NOTHING DISPATC
   per eater, ever. THE DISPATCHER INFERRED OTHERWISE (survival with the leftover, "it can survive
   its own blast by overeating"); that inference is wrong and was stated to the owner before it was
   corrected, and is recorded here so the wrong version cannot be briefed from.
-  CONSEQUENCE, and the one open sub-fork: the detonation subtracts `threshold` and sends one token
-  per target, so a hoard above the threshold leaves a LEFTOVER. Recommended reading (flagged to
-  the owner, reversible): the leftover stays in that cell as NEUTRAL tokens — conservation then
-  holds unchanged, and the eater's death leaves a harvestable pile. The alternative is destroying
-  it, which removes tokens from the board (bounded at one detonation per eater, so termination
-  still holds) but breaks the "total tokens == placements" invariant for good.
+  CONSEQUENCE, SETTLED BY THE OWNER — verbatim: "Yea, thats exactly right, overshooting leaves
+  neutrals." A hoard above the threshold leaves the surplus in that cell as NEUTRAL tokens: the
+  detonation still subtracts `threshold` and sends one token per target, so conservation holds
+  unchanged, and the eater's death leaves a harvestable pile exactly where it died. Destroying the
+  surplus was the rejected alternative — bounded at one detonation per eater, so the cascade would
+  still terminate, but it would break the "total tokens == placements" invariant permanently.
   (3) ACTIVATION — immediately on reveal, then once per round after the REVEALER, which means the
   game state must record who revealed it.
   (3) COMBINE with two-hit plates: a housing that takes two detonations to crack, so releasing an
