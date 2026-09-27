@@ -60,11 +60,29 @@ if [ "${GATE_PLAN_ONLY:-0}" = "1" ]; then
 fi
 
 # --- lock ---------------------------------------------------------------------
+# The acquisition is ONE mkdir. A second mkdir right after a successful first one
+# fails on OUR OWN lock and reports a phantom race (measured 2026-09-27: the gate's
+# first ever run exited 9 that way and left an ownerless lock dir, because the early
+# exit preceded the trap) — so a retry happens ONLY after a sweep, and the trap is
+# installed the instant the lock is ours.
+lock_owner() { cat "$LOCK/owner" 2>/dev/null || echo "(no owner file)"; }
+lock_age() { echo $(( $(date +%s) - $(stat -c %Y "$LOCK" 2>/dev/null || date +%s) )); }
+suite_alive() { pgrep -f "vitest" >/dev/null 2>&1; }
+lock_sweepable() {
+  if [ ! -f "$LOCK/owner" ]; then
+    # A lock being written this instant, or an orphan from a crashed acquisition.
+    [ "$(lock_age)" -le 5 ] && return 1
+    suite_alive && return 1
+    return 0
+  fi
+  [ "$(lock_age)" -gt 1800 ] && ! suite_alive
+}
+
 if ! mkdir "$LOCK" 2>/dev/null; then
-  OWNER="$(cat "$LOCK/owner" 2>/dev/null || echo unknown)"
-  AGE=$(( $(date +%s) - $(stat -c %Y "$LOCK" 2>/dev/null || date +%s) ))
-  if [ "$AGE" -gt 1800 ] && ! pgrep -f "vitest" >/dev/null 2>&1; then
-    echo "STALE LOCK: ${AGE}s old, no suite process alive — removing $LOCK" >&2
+  OWNER="$(lock_owner)"
+  AGE="$(lock_age)"
+  if lock_sweepable; then
+    echo "SWEEPING STALE LOCK at $LOCK (age=${AGE}s, owner=$OWNER, no suite alive)" >&2
     rm -rf "$LOCK"
   else
     echo "LOCK HELD by $OWNER (${AGE}s) — this run is VOID, retry after it settles (exit 9)" >&2
@@ -72,7 +90,7 @@ if ! mkdir "$LOCK" 2>/dev/null; then
   fi
 fi
 if ! mkdir "$LOCK" 2>/dev/null; then
-  echo "LOCK RACE: lost $LOCK after the stale sweep — retry (exit 9)" >&2
+  echo "LOCK RACE: another actor took $LOCK during the sweep — retry (exit 9)" >&2
   exit 9
 fi
 echo "gate mode=$MODE pid=$$ started=$(date -u +%Y-%m-%dT%H:%M:%SZ) cwd=$PWD" > "$LOCK/owner"

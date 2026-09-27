@@ -71,6 +71,14 @@ QUEUE | row=5 | push row=1 + row=2 to `origin/main`. THE OWNER'S CALL — `main`
   publishes and does not ship. Credentials and identity are configured and `ls-remote` proves
   auth works. Reserved until the owner says so.
 
+TRAP | An atomic mkdir lock acquires ONCE. The gate's first ever run re-attempted `mkdir` right
+  after a successful acquisition, failed on its OWN lock, reported a phantom `LOCK RACE`, and
+  exited 9 — and because that exit preceded the `trap`, it left an ownerless
+  `.blastermaster-lock` behind, which would have refused every run for the full 30-minute
+  staleness window. RULE: retry the mkdir ONLY after a sweep, install the trap the instant the
+  lock is ours, and treat an ownerless lock as sweepable when no suite is alive. Measured
+  2026-09-27; the run was VOID (exit 9) and was never quoted as a result.
+
 TRAP | A tenth map card silently overflows the skirmish panel: both title grids are a
   hardcoded 3x3 of 296x128 cards at a 142 pitch, and a fourth row collides with BACK at
   y=672. RULE: a new map card goes through `cardGrid`, and a fourth 128-tall row does NOT
@@ -90,7 +98,9 @@ TRAP | Evidence in /tmp is not durable: Campaigner measured /tmp as a per-call t
 GUARD | gate-lock | `scripts/gate.sh` takes an ATOMIC mkdir lock at
   `<repo>/.blastermaster-lock`, derived from the git COMMON dir so the main tree and every
   worktree resolve the same path. Verify: run it twice — the second prints `LOCK HELD` and
-  exits 9. A lock >30min old with no suite process alive is STALE and swept.
+  exits 9. A lock older than 30 minutes with no suite process alive is STALE and swept, and an
+  OWNERLESS lock with no suite alive is swept after a 5s grace (the orphan a crashed
+  acquisition leaves).
 GUARD | board-reconciler | `scripts/board.sh` checks every sha, branch, worktree, retired
   branch, lock and the host against reality. Verify: it prints `BOARD RECONCILED`, and prints
   `BOARD STALE` when a LANDED sha is invented or a row is both IN-FLIGHT and LANDED.
