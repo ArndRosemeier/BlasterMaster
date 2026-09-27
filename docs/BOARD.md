@@ -30,7 +30,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: b475fd13323753746a5fb5faf12cc5585006fe75 · 2026-09-27T15:15Z
+reconciled: 47b7742d7dd9c2e97332da184f4a349abb4a3d21 · 2026-09-27T15:18Z
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -70,17 +70,38 @@ LANDED | row=2 | sha=b475fd1 | verify=DISPATCHER'S OWN: `npm run gate` at the ga
   docs=AGENTS.md is unchanged deliberately — its commands, quality bars and "done" bar
   already match this process.
 
-QUEUE | row=3 | AI: `src/game/ai/evaluate.ts` still weights a near-critical cell by the same
-  3/6 bonus whether or not it is deep, but a 7-stack deep heart is a much bigger threat AND a
-  much bigger liability. Reserved, NOT ordered: the owner has not asked for it.
+IN-FLIGHT | row=3 | writer=session-f65b232e-25f8-4fc5-bdb1-75417a413d9a
+  | worktree=/home/administrator/projects/BlasterMaster/worktrees/ai-rule-derived
+  | branch=feat/ai-rule-derived | base=47b7742 | dispatched_by=session-1e324382
+  | state=dispatched 2026-09-27T15:2xZ, deps installed, no commit yet
+  | note=OWNER'S ORDER, verbatim: "AI should work on a more fundamental level if it does not do
+  so now. The same routines that steer how spread and explosions work should also be used by the
+  AI so that changes here will automatically be used by the AI (avoid any code duplications,
+  make everything resilient to code changes)".
+  INTAKE CORRECTION (dispatcher, with evidence): the premise is already true for legality and
+  simulation — `ai/choose.ts:1-2` imports `legalMoves` and `applyTurn`, and `ai/evaluate.ts:1`
+  imports `nearCriticalCount`, which routes through the engine's `threshold()` — which is why
+  the deep-cell landing `ab2b552` needed ZERO AI edits. A grep for
+  `neighbors|diagonals|threshold|blastTargets` in `src/game/ai/` finds only array `.length`.
+  What is still rule-BLIND is the JUDGEMENT: `evaluate.ts` hardcodes weights over features that
+  know neither threshold nor reach, and nothing stops a future edit re-deriving adjacency in
+  `ai/`. So the slice is: derive every evaluation term from `threshold`/`blastTargets`/
+  `isCritical`/`isNearCritical`; add an eslint `no-restricted-syntax` guard scoped to
+  `src/game/ai/**` forbidding `.neighbors`/`.diagonals`/`.deep`; pins for rule-derived
+  valuation, rule sensitivity, and the guard verified BY INJECTION. Out of scope: the search in
+  `choose.ts`, and any numeric tuning of difficulty tiers.
+  docs=the writer amends `docs/DECISIONS.md` row 9 (append-only) and `docs/HOW_WE_DO_IT.md`;
+  the dispatcher owns `docs/BOARD.md`.
 
 QUEUE | row=4 | DEEP FIELD ships in SKIRMISH only. A campaign mission for it needs a tenth
   mission and the ops grid has the same 3x3 capacity limit. Reserved, NOT ordered.
 
-QUEUE | row=5 | push row=1 + row=2 to `origin/main`. THE OWNER'S CALL — `main` is NOT a deploy
-  trigger in this repo (deploy is the manual `deploy:sync` PowerShell/FTP script), so a push
-  publishes and does not ship. Credentials and identity are configured and `ls-remote` proves
-  auth works. Reserved until the owner says so.
+LANDED | row=5 | sha=47b7742 | verify=DISPATCHER'S OWN: `git push origin HEAD:main` printed
+  `62f7c29..47b7742 HEAD -> main`, and `git rev-parse HEAD origin/main` returned the SAME sha
+  twice (47b7742d7dd9c2e97332da184f4a349abb4a3d21). The push published row=1 and row=2;
+  `main` is NOT a deploy trigger in this repo (deploy is the manual `deploy:sync` FTP script),
+  so nothing shipped to the live site. | retired=nothing | note=owner's answer to the fork:
+  "Push both landings to origin/main (Recommended)".
 
 TRAP | An atomic mkdir lock acquires ONCE. The gate's first ever run re-attempted `mkdir` right
   after a successful acquisition, failed on its OWN lock, reported a phantom `LOCK RACE`, and
