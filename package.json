@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "format": "eslint . --fix"
+    "format": "eslint . --fix",
+    "deploy:sync": "powershell -NoProfile -File ./deploy-sync.ps1"
   },
   "dependencies": {
     "phaser": "^3.87.0"

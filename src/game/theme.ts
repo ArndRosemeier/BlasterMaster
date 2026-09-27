@@ -17,6 +17,8 @@ export const theme = {
     plateEdge: 0x6a727a,
     plateInner: 0x14181c,
     plateHot: 0x3a2a18,
+    wall: 0x2a241c,
+    wallEdge: 0xb8924a,
     shaft: 0x070809,
     hudText: '#f3ead8',
     hudMuted: '#9a8f7c',

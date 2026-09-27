@@ -13,6 +13,7 @@ export type CellState = {
 
 export type Board = {
   readonly cells: Readonly<Record<CellId, CellState>>;
+  readonly walls: readonly CellId[];
 };
 
 export type MapCell = {
@@ -24,6 +25,7 @@ export type MapDefinition = {
   readonly id: string;
   readonly name: string;
   readonly cells: readonly MapCell[];
+  readonly walls: readonly MapCell[];
 };
 
 export type HasPlaced = {
@@ -31,9 +33,11 @@ export type HasPlaced = {
   readonly b: boolean;
 };
 
+export type WinCause = 'wipe' | 'cycle';
+
 export type Outcome =
   | { readonly type: 'ongoing' }
-  | { readonly type: 'win'; readonly player: PlayerId }
+  | { readonly type: 'win'; readonly player: PlayerId; readonly cause: WinCause }
   | { readonly type: 'draw' };
 
 export type IllegalMoveReason = 'unknown-cell' | 'owned-by-opponent' | 'game-over';
@@ -47,6 +51,7 @@ export type WaveStep = {
   readonly board: Board;
   readonly exploded: readonly CellId[];
   readonly transfers: readonly TokenTransfer[];
+  readonly collapsed: readonly CellId[];
 };
 
 export type MoveSuccess = {

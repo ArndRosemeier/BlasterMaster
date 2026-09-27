@@ -1,4 +1,19 @@
-export { boardCells, createBoard, getCell, legalMoves, mapBounds, occupiedCount, seedBoard, tokenCount } from './board';
+export {
+  boardCells,
+  boardWalls,
+  collapseWalls,
+  createBoard,
+  getCell,
+  hashBoard,
+  isNearCritical,
+  legalMoves,
+  mapBounds,
+  nearCriticalCount,
+  occupiedCount,
+  orthoNeighborIds,
+  seedBoard,
+  tokenCount,
+} from './board';
 export { createGame, applyTurn } from './game';
 export { cellId, opponentOf, parseCellId } from './ids';
 export { applyMove } from './move';
@@ -21,4 +36,5 @@ export type {
   TurnResult,
   TurnSuccess,
   WaveStep,
+  WinCause,
 } from './types';

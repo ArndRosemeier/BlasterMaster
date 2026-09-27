@@ -10,6 +10,7 @@ describe('layoutBoard', () => {
       id: 'sq',
       name: 'sq',
       cells: cellsFromRows(['##', '##']),
+      walls: [],
     });
     const layout = layoutBoard(board, { x: 0, y: 0, width: 400, height: 400 });
     const a = cellCenter(layout, 0, 0);

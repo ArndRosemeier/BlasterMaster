@@ -6,13 +6,16 @@
 |------|------|
 | `src/main.ts` | Phaser.Game bootstrap |
 | `src/game/` | Shared game config, engine, maps, theme |
-| `src/game/engine/` | Pure rules: board, move, hotseat session |
+| `src/game/engine/` | Pure rules: board, walls, move, hotseat session |
+| `src/game/ai/` | Heuristic opponent over `applyTurn` |
+| `src/game/ops/` | Campaign, scoring, progress, session DTOs |
+| `src/game/audio/` | Sample catalog + Web Audio bus |
 | `src/game/view/` | Pure presentation math (layout) |
 | `src/scenes/` | Phaser scenes (screens) |
-| `src/scenes/play/` | Play-scene view objects |
+| `src/scenes/play/` | Play-scene view objects, generated core textures, blast FX |
 | `src/lib/` | Pure shared utilities (no Phaser scene coupling) |
 | `src/env.ts` | Zod-parsed `import.meta.env` |
-| `public/assets/` | Generated backgrounds |
+| `public/assets/` | Generated backgrounds and SFX |
 
 ## Dependency direction
 
@@ -32,6 +35,7 @@ lib     -->  (nothing in scenes/game)
 |----------------|-----------|
 | New screen / level | `src/scenes/YourScene.ts` + register in `game/config.ts` |
 | Rules / board / win | `src/game/engine/` + tests beside the module |
+| AI, campaign, stars | `src/game/ai/` or `src/game/ops/` — wrappers only |
 | Shared game constants / theme | `src/game/` |
 | Pure helpers (math, formatting) | `src/lib/` or `src/game/view/` + tests beside them |
 | Env / feature flags | `src/env.ts` (Zod) |

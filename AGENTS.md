@@ -21,6 +21,7 @@ npm run lint         # ESLint flat config
 npm run test         # vitest run
 npm run test:watch   # vitest watch
 npm run format       # eslint --fix
+npm run deploy:sync  # Vite build + incremental FTP to futuremagic.de
 ```
 
 ## Quality bars

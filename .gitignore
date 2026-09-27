@@ -9,6 +9,7 @@ dist-ssr/
 !.env.example
 coverage/
 *.log
+.deploy/
 .vite/
 .idea/
 .vscode/*

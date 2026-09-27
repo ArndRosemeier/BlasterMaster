@@ -4,7 +4,7 @@ import { applyTurn, createGame } from './engine/game';
 import { cellId } from './engine/ids';
 import { legalMoves, occupiedCount } from './engine/board';
 import type { TurnResult, TurnSuccess } from './engine/types';
-import { IRREGULAR, RECT_5, assertShippedMaps, cellsFromRows, requireMap } from './maps';
+import { AIRLOCK, BOLTS, FUNNEL, IRREGULAR, RECT_5, RING, SEAM, SPARK, TWIN_STACKS, assertShippedMaps, cellsFromRows, requireMap } from './maps';
 
 describe('shipped maps', () => {
   it('build valid graphs with expected degrees', () => {
@@ -21,6 +21,19 @@ describe('shipped maps', () => {
     expect(broken.cells[cellId(2, 2)]).toBeUndefined();
     expect(getCell(broken, cellId(2, 5)).neighbors).toEqual([cellId(2, 4)]);
     expect(getCell(broken, cellId(1, 2)).neighbors).toHaveLength(3);
+
+    expect(Object.keys(createBoard(SPARK).cells)).toHaveLength(9);
+    expect(getCell(createBoard(FUNNEL), cellId(2, 0)).neighbors).toHaveLength(1);
+    expect(getCell(createBoard(FUNNEL), cellId(2, 2)).neighbors).toHaveLength(4);
+    expect(createBoard(RING).cells[cellId(2, 2)]).toBeUndefined();
+    expect(Object.keys(createBoard(TWIN_STACKS).cells)).toHaveLength(31);
+
+    const airlock = createBoard(AIRLOCK);
+    expect(Object.keys(airlock.cells)).toHaveLength(18);
+    expect(airlock.walls).toEqual([cellId(3, 1)]);
+    expect(getCell(airlock, cellId(2, 1)).neighbors).toHaveLength(3);
+    expect(createBoard(BOLTS).walls).toEqual([cellId(3, 1), cellId(7, 1)]);
+    expect(createBoard(SEAM).walls).toHaveLength(5);
   });
 
   it('parses occupancy rows and rejects unknown map ids', () => {
@@ -29,6 +42,7 @@ describe('shipped maps', () => {
       { x: 2, y: 0 },
       { x: 1, y: 1 },
     ]);
+    expect(() => cellsFromRows(['#=#'])).toThrow(/wall glyphs/);
     expect(() => requireMap('nope')).toThrow(/Unknown map/);
   });
 });

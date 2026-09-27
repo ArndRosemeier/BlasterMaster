@@ -1,4 +1,4 @@
-import { getCell, hashBoard, occupiedCount, replaceCell } from './board';
+import { collapseWalls, getCell, hashBoard, occupiedCount, replaceCell } from './board';
 import { opponentOf } from './ids';
 import type {
   Board,
@@ -22,12 +22,16 @@ function criticalCells(board: Board): CellId[] {
   return ready.sort();
 }
 
-function applyWave(board: Board, player: PlayerId, exploded: readonly CellId[]): WaveStep {
+function applyWave(
+  board: Board,
+  player: PlayerId,
+  exploded: readonly CellId[],
+): { readonly board: Board; readonly transfers: readonly TokenTransfer[] } {
   const cells: Record<CellId, CellState> = { ...board.cells };
   const transfers: TokenTransfer[] = [];
 
   for (const id of exploded) {
-    const cell = getCell({ cells }, id);
+    const cell = getCell({ cells, walls: board.walls }, id);
     const leftover = cell.count - cell.neighbors.length;
     if (leftover < 0) {
       throw new Error(`Cell ${id} exploded below zero`);
@@ -43,7 +47,7 @@ function applyWave(board: Board, player: PlayerId, exploded: readonly CellId[]):
   }
 
   for (const transfer of transfers) {
-    const target = getCell({ cells }, transfer.to);
+    const target = getCell({ cells, walls: board.walls }, transfer.to);
     cells[transfer.to] = {
       ...target,
       count: target.count + 1,
@@ -52,8 +56,7 @@ function applyWave(board: Board, player: PlayerId, exploded: readonly CellId[]):
   }
 
   return {
-    board: { cells },
-    exploded,
+    board: { cells, walls: board.walls },
     transfers,
   };
 }
@@ -64,7 +67,7 @@ function cycleOutcome(board: Board): Outcome {
   if (aCount === bCount) {
     return { type: 'draw' };
   }
-  return { type: 'win', player: aCount > bCount ? 'a' : 'b' };
+  return { type: 'win', player: aCount > bCount ? 'a' : 'b', cause: 'cycle' };
 }
 
 export function applyMove(
@@ -107,9 +110,15 @@ export function applyMove(
       };
     }
 
-    const step = applyWave(current, player, exploded);
-    current = step.board;
-    waves.push(step);
+    const dump = applyWave(current, player, exploded);
+    const grown = collapseWalls(dump.board, exploded);
+    current = grown.board;
+    waves.push({
+      board: current,
+      exploded,
+      transfers: dump.transfers,
+      collapsed: grown.collapsed,
+    });
 
     const opponent = opponentOf(player);
     if (occupiedCount(current, opponent) === 0 && nextHasPlaced[opponent]) {
@@ -119,7 +128,7 @@ export function applyMove(
         waves,
         final: current,
         hasPlaced: nextHasPlaced,
-        outcome: { type: 'win', player },
+        outcome: { type: 'win', player, cause: 'wipe' },
       };
     }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cellsFromRows } from '../maps';
-import { boardCells, createBoard, getCell, legalMoves, occupiedCount, seedBoard, tokenCount } from './board';
+import { AIRLOCK, mapFromRows } from '../maps';
+import { boardCells, createBoard, getCell, hashBoard, legalMoves, occupiedCount, seedBoard, tokenCount } from './board';
 import { applyTurn, createGame } from './game';
 import { cellId } from './ids';
 import { applyMove } from './move';
@@ -10,7 +10,7 @@ const NEVER_PLACED: HasPlaced = { a: false, b: false };
 const BOTH_PLACED: HasPlaced = { a: true, b: true };
 
 function map(id: string, rows: readonly string[]): MapDefinition {
-  return { id, name: id, cells: cellsFromRows(rows) };
+  return mapFromRows(id, id, rows);
 }
 
 const LINE2 = map('line2', ['##']);
@@ -44,7 +44,7 @@ describe('createBoard', () => {
   });
 
   it('rejects empty maps and duplicate coordinates', () => {
-    expect(() => createBoard({ id: 'empty', name: 'empty', cells: [] })).toThrow(/no cells/);
+    expect(() => createBoard({ id: 'empty', name: 'empty', cells: [], walls: [] })).toThrow(/no cells/);
     expect(() =>
       createBoard({
         id: 'dup',
@@ -53,6 +53,7 @@ describe('createBoard', () => {
           { x: 0, y: 0 },
           { x: 0, y: 0 },
         ],
+        walls: [],
       }),
     ).toThrow(/duplicate/);
   });
@@ -167,7 +168,7 @@ describe('explosions', () => {
     const result = requireOk(applyMove(seeded, 'b', cellId(0, 0), BOTH_PLACED));
     expect(ownerOf(result.final, 1, 0)).toBe('b');
     expect(occupiedCount(result.final, 'a')).toBe(0);
-    expect(result.outcome).toEqual({ type: 'win', player: 'b' });
+    expect(result.outcome).toEqual({ type: 'win', player: 'b', cause: 'wipe' });
   });
 
   it('conserves tokens across a cascade', () => {
@@ -193,7 +194,7 @@ describe('cycles', () => {
       { id: cellId(3, 0), count: 1, owner: 'b' },
     ]);
     const result = requireOk(applyMove(board, 'a', cellId(0, 0), BOTH_PLACED));
-    expect(result.outcome).toEqual({ type: 'win', player: 'a' });
+    expect(result.outcome).toEqual({ type: 'win', player: 'a', cause: 'cycle' });
     expect(occupiedCount(result.final, 'a')).toBeGreaterThan(occupiedCount(result.final, 'b'));
     expect(occupiedCount(result.final, 'b')).toBe(1);
   });
@@ -223,7 +224,7 @@ describe('hotseat applyTurn', () => {
     expect(game.outcome.type).toBe('ongoing');
 
     const second = requireOk(applyTurn(game, cellId(1, 0)));
-    expect(second.game.outcome).toEqual({ type: 'win', player: 'b' });
+    expect(second.game.outcome).toEqual({ type: 'win', player: 'b', cause: 'wipe' });
     expect(occupiedCount(second.game.board, 'a')).toBe(0);
     expect(second.game.currentPlayer).toBe('b');
   });
@@ -243,6 +244,104 @@ describe('hotseat applyTurn', () => {
     expect(game.currentPlayer).toBe('a');
     expect(ownerOf(game.board, 0, 0)).toBe('a');
     expect(ownerOf(game.board, 1, 0)).toBe('b');
+  });
+});
+
+describe('collapsible walls', () => {
+  const BRIDGE = map('bridge', ['##=##']);
+
+  it('rejects isolated cells that only touch walls, orphan walls, and overlaps', () => {
+    expect(() => createBoard(map('touch-only', ['#=#']))).toThrow(/isolated/);
+    expect(() => createBoard(map('orphan', ['##.=']))).toThrow(/orphan wall/);
+    expect(() =>
+      createBoard({
+        id: 'overlap',
+        name: 'overlap',
+        cells: [{ x: 0, y: 0 }, { x: 1, y: 0 }],
+        walls: [{ x: 1, y: 0 }],
+      }),
+    ).toThrow(/overlapping/);
+  });
+
+  it('does not collapse on placement, and refuses a place on the plate', () => {
+    const board = createBoard(AIRLOCK);
+    expect(board.walls).toEqual([cellId(3, 1)]);
+    const quiet = requireOk(applyMove(board, 'a', cellId(0, 0), NEVER_PLACED));
+    expect(quiet.waves).toEqual([]);
+    expect(quiet.afterPlacement.walls).toEqual(board.walls);
+    expect(quiet.final.walls).toEqual(board.walls);
+    expect(applyMove(board, 'a', cellId(3, 1), NEVER_PLACED)).toEqual({
+      ok: false,
+      reason: 'unknown-cell',
+    });
+  });
+
+  it('opens a bridge after the dump, without sending the blast through the plate', () => {
+    const seeded = seedBoard(createBoard(BRIDGE), [{ id: cellId(1, 0), count: 1, owner: 'a' }]);
+    const before = tokenCount(seeded, 'a') + tokenCount(seeded, 'b');
+    const result = requireOk(applyMove(seeded, 'a', cellId(1, 0), NEVER_PLACED));
+    const first = result.waves[0];
+    if (first === undefined) {
+      throw new Error('expected a wave');
+    }
+    expect(first.exploded).toEqual([cellId(1, 0)]);
+    expect(first.transfers.map((transfer) => transfer.to)).toEqual([cellId(0, 0)]);
+    expect(first.transfers.some((transfer) => transfer.to === cellId(2, 0))).toBe(false);
+    expect(first.collapsed).toEqual([cellId(2, 0)]);
+    expect(countOf(first.board, 2, 0)).toBe(0);
+    expect(ownerOf(first.board, 2, 0)).toBeNull();
+    expect(first.board.walls).toEqual([]);
+    expect(getCell(first.board, cellId(1, 0)).neighbors).toEqual([cellId(2, 0), cellId(0, 0)]);
+    expect(getCell(first.board, cellId(3, 0)).neighbors).toEqual([cellId(4, 0), cellId(2, 0)]);
+    expect(tokenCount(result.final, 'a') + tokenCount(result.final, 'b')).toBe(before + 1);
+    expect(hashBoard(createBoard(BRIDGE))).not.toBe(hashBoard(createBoard(map('open', ['#####']))));
+  });
+
+  it('does not collapse a diagonally touching wall', () => {
+    const board = seedBoard(createBoard(map('diag', ['##.', '=##'])), [
+      { id: cellId(1, 0), count: 1, owner: 'a' },
+    ]);
+    const result = requireOk(applyMove(board, 'a', cellId(1, 0), NEVER_PLACED));
+    const first = result.waves[0];
+    if (first === undefined) {
+      throw new Error('expected a wave');
+    }
+    expect(first.collapsed).toEqual([]);
+    expect(first.board.walls).toEqual([cellId(0, 1)]);
+  });
+
+  it('lets a later turn dump through the new plate onto the far island', () => {
+    const opened = requireOk(
+      applyMove(
+        seedBoard(createBoard(BRIDGE), [{ id: cellId(1, 0), count: 1, owner: 'a' }]),
+        'a',
+        cellId(1, 0),
+        NEVER_PLACED,
+      ),
+    );
+    expect(opened.final.walls).toEqual([]);
+    const charged = requireOk(applyMove(opened.final, 'a', cellId(2, 0), { a: true, b: false }));
+    const cross = requireOk(applyMove(charged.final, 'a', cellId(2, 0), { a: true, b: false }));
+    const first = cross.waves[0];
+    if (first === undefined) {
+      throw new Error('expected the new plate to explode');
+    }
+    expect(first.exploded).toEqual([cellId(2, 0)]);
+    expect(first.transfers.map((transfer) => transfer.to).sort()).toEqual([
+      cellId(1, 0),
+      cellId(3, 0),
+    ]);
+  });
+
+  it('still wipes through leftover walls when the opponent is gone', () => {
+    const seeded = seedBoard(createBoard(AIRLOCK), [
+      { id: cellId(0, 0), count: 1, owner: 'a' },
+      { id: cellId(1, 0), count: 1, owner: 'b' },
+    ]);
+    const result = requireOk(applyMove(seeded, 'a', cellId(0, 0), BOTH_PLACED));
+    expect(occupiedCount(result.final, 'b')).toBe(0);
+    expect(result.outcome).toEqual({ type: 'win', player: 'a', cause: 'wipe' });
+    expect(result.final.walls).toEqual([cellId(3, 1)]);
   });
 });
 
