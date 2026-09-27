@@ -4,17 +4,26 @@ import type { MapCell, MapDefinition } from './engine/types';
 const CELL = '#';
 const WALL = '=';
 const VOID = '.';
+/** Deep cell: a cell that also counts and fires on the diagonals. */
+const DEEP = '*';
 
 export function tilesFromRows(rows: readonly string[]): {
   readonly cells: readonly MapCell[];
   readonly walls: readonly MapCell[];
+  readonly deep: readonly MapCell[];
 } {
   const cells: MapCell[] = [];
   const walls: MapCell[] = [];
+  const deep: MapCell[] = [];
   rows.forEach((row, y) => {
     [...row].forEach((glyph, x) => {
       if (glyph === CELL) {
         cells.push({ x, y });
+        return;
+      }
+      if (glyph === DEEP) {
+        cells.push({ x, y });
+        deep.push({ x, y });
         return;
       }
       if (glyph === WALL) {
@@ -27,7 +36,7 @@ export function tilesFromRows(rows: readonly string[]): {
       throw new Error(`Unknown map glyph "${glyph}" at (${x}, ${y})`);
     });
   });
-  return { cells, walls };
+  return { cells, walls, deep };
 }
 
 export function cellsFromRows(rows: readonly string[]): readonly MapCell[] {
@@ -35,12 +44,15 @@ export function cellsFromRows(rows: readonly string[]): readonly MapCell[] {
   if (tiles.walls.length > 0) {
     throw new Error('cellsFromRows cannot parse wall glyphs; use tilesFromRows or mapFromRows');
   }
+  if (tiles.deep.length > 0) {
+    throw new Error('cellsFromRows cannot parse deep glyphs; use tilesFromRows or mapFromRows');
+  }
   return tiles.cells;
 }
 
 export function mapFromRows(id: string, name: string, rows: readonly string[]): MapDefinition {
   const tiles = tilesFromRows(rows);
-  return { id, name, cells: tiles.cells, walls: tiles.walls };
+  return { id, name, cells: tiles.cells, walls: tiles.walls, deep: tiles.deep };
 }
 
 export const SPARK: MapDefinition = mapFromRows('spark', 'SPARK', ['###', '###', '###']);
@@ -106,6 +118,14 @@ export const SEAM: MapDefinition = mapFromRows('seam', 'THE SEAM', [
   '####=####',
 ]);
 
+export const DEEP_FIELD: MapDefinition = mapFromRows('deep', 'DEEP FIELD', [
+  '*####',
+  '#####',
+  '##*##',
+  '#####',
+  '####*',
+]);
+
 export const MAPS = {
   spark: SPARK,
   funnel: FUNNEL,
@@ -116,6 +136,7 @@ export const MAPS = {
   airlock: AIRLOCK,
   bolts: BOLTS,
   seam: SEAM,
+  deep: DEEP_FIELD,
 } as const;
 
 export type MapId = keyof typeof MAPS;
@@ -130,6 +151,7 @@ export const MAP_LIST: readonly MapDefinition[] = [
   AIRLOCK,
   BOLTS,
   SEAM,
+  DEEP_FIELD,
 ];
 
 export function isMapId(value: string): value is MapId {

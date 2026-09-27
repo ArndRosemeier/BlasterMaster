@@ -7,6 +7,10 @@ export type CellState = {
   readonly x: number;
   readonly y: number;
   readonly neighbors: readonly CellId[];
+  /** Diagonal cells this one fires into. Empty unless `deep`. */
+  readonly diagonals: readonly CellId[];
+  /** Map-authored deep cell: detonates at ortho + diagonal degree. */
+  readonly deep: boolean;
   readonly count: number;
   readonly owner: PlayerId | null;
 };
@@ -26,6 +30,8 @@ export type MapDefinition = {
   readonly name: string;
   readonly cells: readonly MapCell[];
   readonly walls: readonly MapCell[];
+  /** Subset of `cells` that detonates on the diagonals too. */
+  readonly deep: readonly MapCell[];
 };
 
 export type HasPlaced = {

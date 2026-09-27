@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { AIRLOCK, mapFromRows } from '../maps';
-import { boardCells, createBoard, getCell, hashBoard, legalMoves, occupiedCount, seedBoard, tokenCount } from './board';
+import { AIRLOCK, DEEP_FIELD, cellsFromRows, mapFromRows } from '../maps';
+import {
+  blastTargets,
+  boardCells,
+  createBoard,
+  getCell,
+  hashBoard,
+  isNearCritical,
+  legalMoves,
+  occupiedCount,
+  seedBoard,
+  threshold,
+  tokenCount,
+} from './board';
 import { applyTurn, createGame } from './game';
 import { cellId } from './ids';
 import { applyMove } from './move';
@@ -44,7 +56,7 @@ describe('createBoard', () => {
   });
 
   it('rejects empty maps and duplicate coordinates', () => {
-    expect(() => createBoard({ id: 'empty', name: 'empty', cells: [], walls: [] })).toThrow(/no cells/);
+    expect(() => createBoard({ id: 'empty', name: 'empty', cells: [], walls: [], deep: [] })).toThrow(/no cells/);
     expect(() =>
       createBoard({
         id: 'dup',
@@ -54,6 +66,7 @@ describe('createBoard', () => {
           { x: 0, y: 0 },
         ],
         walls: [],
+        deep: [],
       }),
     ).toThrow(/duplicate/);
   });
@@ -259,6 +272,7 @@ describe('collapsible walls', () => {
         name: 'overlap',
         cells: [{ x: 0, y: 0 }, { x: 1, y: 0 }],
         walls: [{ x: 1, y: 0 }],
+        deep: [],
       }),
     ).toThrow(/overlapping/);
   });
@@ -297,7 +311,7 @@ describe('collapsible walls', () => {
     expect(hashBoard(createBoard(BRIDGE))).not.toBe(hashBoard(createBoard(map('open', ['#####']))));
   });
 
-  it('does not collapse a diagonally touching wall', () => {
+  it('does not collapse a diagonally touching wall for a normal cell', () => {
     const board = seedBoard(createBoard(map('diag', ['##.', '=##'])), [
       { id: cellId(1, 0), count: 1, owner: 'a' },
     ]);
@@ -363,6 +377,167 @@ describe('seedBoard', () => {
   });
 });
 
+describe('deep cells', () => {
+  const CENTER_DEEP = map('deep-center', ['###', '#*#', '###']);
+
+  it('counts diagonals toward the threshold and leaves normal cells alone', () => {
+    const board = createBoard(CENTER_DEEP);
+    const center = getCell(board, cellId(1, 1));
+    expect(center.deep).toBe(true);
+    expect(center.neighbors).toHaveLength(4);
+    expect(center.diagonals).toEqual([
+      cellId(2, 0),
+      cellId(2, 2),
+      cellId(0, 2),
+      cellId(0, 0),
+    ]);
+    expect(threshold(center)).toBe(8);
+
+    const corner = getCell(board, cellId(0, 0));
+    expect(corner.deep).toBe(false);
+    expect(corner.diagonals).toEqual([]);
+    expect(threshold(corner)).toBe(2);
+
+    const field = createBoard(DEEP_FIELD);
+    expect(threshold(getCell(field, cellId(0, 0)))).toBe(3);
+    expect(threshold(getCell(field, cellId(2, 2)))).toBe(8);
+    expect(getCell(field, cellId(2, 2)).deep).toBe(true);
+  });
+
+  it('warns near critical only at its own threshold', () => {
+    const board = createBoard(CENTER_DEEP);
+    const center = getCell(board, cellId(1, 1));
+    expect(isNearCritical({ ...center, count: 6, owner: 'a' })).toBe(false);
+    expect(isNearCritical({ ...center, count: 7, owner: 'a' })).toBe(true);
+  });
+
+  it('detonates at eight and dumps one token into every direction', () => {
+    const seeded = seedBoard(createBoard(CENTER_DEEP), [
+      { id: cellId(1, 1), count: 7, owner: 'a' },
+      { id: cellId(0, 0), count: 1, owner: 'b' },
+    ]);
+    expect(blastTargets(getCell(seeded, cellId(1, 1)))).toHaveLength(8);
+
+    const result = requireOk(applyMove(seeded, 'a', cellId(1, 1), NEVER_PLACED));
+    const first = result.waves[0];
+    if (first === undefined) {
+      throw new Error('expected the deep center to explode');
+    }
+    expect(first.exploded).toEqual([cellId(1, 1)]);
+    expect(first.transfers).toHaveLength(8);
+    expect(countOf(first.board, 1, 1)).toBe(0);
+    expect(countOf(first.board, 0, 0)).toBe(2);
+    expect(ownerOf(first.board, 0, 0)).toBe('a');
+    // Every one of the eight directions took exactly one token.
+    expect(countOf(first.board, 1, 0)).toBe(1);
+    expect(countOf(first.board, 2, 0)).toBe(1);
+    expect(countOf(first.board, 2, 1)).toBe(1);
+    expect(countOf(first.board, 2, 2)).toBe(1);
+    expect(countOf(first.board, 1, 2)).toBe(1);
+    expect(countOf(first.board, 0, 2)).toBe(1);
+    expect(countOf(first.board, 0, 1)).toBe(1);
+
+    // The diagonal dump arms the far corner, whose own blast follows.
+    expect(result.waves).toHaveLength(2);
+    expect(result.waves[1]?.exploded).toEqual([cellId(0, 0)]);
+    expect(result.outcome).toEqual({ type: 'ongoing' });
+    // 8 tokens dumped into 8 directions preserves the pile exactly.
+    expect(tokenCount(result.final, 'a') + tokenCount(result.final, 'b')).toBe(9);
+  });
+
+  it('wipes the opponent when a diagonal dump takes their last cell', () => {
+    const seeded = seedBoard(createBoard(CENTER_DEEP), [
+      { id: cellId(1, 1), count: 7, owner: 'a' },
+      { id: cellId(0, 0), count: 1, owner: 'b' },
+    ]);
+    const result = requireOk(applyMove(seeded, 'a', cellId(1, 1), BOTH_PLACED));
+    expect(result.waves).toHaveLength(1);
+    expect(occupiedCount(result.final, 'b')).toBe(0);
+    expect(result.outcome).toEqual({ type: 'win', player: 'a', cause: 'wipe' });
+  });
+
+  it('never lets a normal cell fire into the diagonals', () => {
+    const seeded = seedBoard(createBoard(CENTER_DEEP), [
+      { id: cellId(0, 0), count: 1, owner: 'a' },
+    ]);
+    const result = requireOk(applyMove(seeded, 'a', cellId(0, 0), NEVER_PLACED));
+    const first = result.waves[0];
+    if (first === undefined) {
+      throw new Error('expected the corner to explode');
+    }
+    expect(first.exploded).toEqual([cellId(0, 0)]);
+    expect(first.transfers.map((transfer) => transfer.to).sort()).toEqual([
+      cellId(0, 1),
+      cellId(1, 0),
+    ]);
+    expect(countOf(first.board, 1, 1)).toBe(0);
+  });
+
+  it('drops a wall that only a deep blast touches diagonally', () => {
+    const board = createBoard(map('deep-door', ['*##', '.=.']));
+    expect(board.walls).toEqual([cellId(1, 1)]);
+    const result = requireOk(applyMove(board, 'a', cellId(0, 0), NEVER_PLACED));
+    const first = result.waves[0];
+    if (first === undefined) {
+      throw new Error('expected the deep corner to explode');
+    }
+    expect(first.exploded).toEqual([cellId(0, 0)]);
+    expect(first.collapsed).toEqual([cellId(1, 1)]);
+    expect(first.board.walls).toEqual([]);
+    // The blast still does not travel through the door it just opened.
+    expect(first.transfers.map((transfer) => transfer.to)).toEqual([cellId(1, 0)]);
+  });
+
+  it('allows a deep cell to connect only through a diagonal', () => {
+    const board = createBoard(map('deep-diag-only', ['*..', '.##']));
+    const deepCell = getCell(board, cellId(0, 0));
+    expect(deepCell.neighbors).toEqual([]);
+    expect(deepCell.diagonals).toEqual([cellId(1, 1)]);
+    expect(threshold(deepCell)).toBe(1);
+    expect(() => createBoard(map('normal-diag-only', ['#..', '.##']))).toThrow(/isolated/);
+  });
+
+  it('rejects deep markers that are not live cells', () => {
+    expect(() =>
+      createBoard({
+        id: 'deep-wall',
+        name: 'deep-wall',
+        cells: cellsFromRows(['##']),
+        walls: [{ x: 0, y: 1 }],
+        deep: [{ x: 0, y: 1 }],
+      }),
+    ).toThrow(/marks wall .* as deep/);
+    expect(() =>
+      createBoard({
+        id: 'deep-void',
+        name: 'deep-void',
+        cells: cellsFromRows(['##']),
+        walls: [],
+        deep: [{ x: 5, y: 5 }],
+      }),
+    ).toThrow(/marks unknown cell .* as deep/);
+  });
+
+  it('keeps a deep cascade token-conserving when the whole grid is deep', () => {
+    const seeded = seedBoard(createBoard(map('deep-all', ['***', '***', '***'])), [
+      { id: cellId(1, 1), count: 7, owner: 'a' },
+      { id: cellId(0, 0), count: 3, owner: 'b' },
+    ]);
+    const before = tokenCount(seeded, 'a') + tokenCount(seeded, 'b');
+    const result = requireOk(applyMove(seeded, 'a', cellId(1, 1), BOTH_PLACED));
+    const after = tokenCount(result.final, 'a') + tokenCount(result.final, 'b');
+    expect(after).toBe(before + 1);
+    for (const cell of boardCells(result.final)) {
+      expect(cell.count).toBeLessThan(threshold(cell));
+      if (cell.count === 0) {
+        expect(cell.owner).toBeNull();
+      } else {
+        expect(cell.owner).not.toBeNull();
+      }
+    }
+  });
+});
+
 describe('random legal play terminates each cascade', () => {
   function mulberry32(seed: number): () => number {
     let t = seed >>> 0;
@@ -374,14 +549,10 @@ describe('random legal play terminates each cascade', () => {
     };
   }
 
-  it('never hangs and stays internally consistent on shipped-size graphs', () => {
-    const arena = map(
-      'random-arena',
-      ['#####', '#####', '#####', '#####', '#####'],
-    );
-    const rng = mulberry32(20260907);
-
-    for (let gameIndex = 0; gameIndex < 40; gameIndex += 1) {
+  /** Plays random legal turns, asserting the cascade invariants after each one. */
+  function playRandomGames(arena: MapDefinition, seed: number, games: number): void {
+    const rng = mulberry32(seed);
+    for (let gameIndex = 0; gameIndex < games; gameIndex += 1) {
       let game = createGame(arena);
       let moves = 0;
       while (game.outcome.type === 'ongoing' && moves < 200) {
@@ -408,5 +579,14 @@ describe('random legal play terminates each cascade', () => {
       }
       expect(moves).toBeGreaterThan(0);
     }
+  }
+
+  it('never hangs and stays internally consistent on shipped-size graphs', () => {
+    playRandomGames(map('random-arena', ['#####', '#####', '#####', '#####', '#####']), 20260907, 40);
+  });
+
+  it('never hangs on a deep arena where the heart fires eight ways', () => {
+    playRandomGames(map('deep-arena', ['#####', '#####', '##*##', '#####', '#####']), 20260908, 40);
+    playRandomGames(DEEP_FIELD, 20260909, 40);
   });
 });

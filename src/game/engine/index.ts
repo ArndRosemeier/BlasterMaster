@@ -1,10 +1,13 @@
 export {
+  blastTargets,
   boardCells,
   boardWalls,
   collapseWalls,
   createBoard,
+  diagNeighborIds,
   getCell,
   hashBoard,
+  isCritical,
   isNearCritical,
   legalMoves,
   mapBounds,
@@ -12,6 +15,7 @@ export {
   occupiedCount,
   orthoNeighborIds,
   seedBoard,
+  threshold,
   tokenCount,
 } from './board';
 export { createGame, applyTurn } from './game';

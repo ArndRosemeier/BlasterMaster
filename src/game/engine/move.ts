@@ -1,4 +1,13 @@
-import { collapseWalls, getCell, hashBoard, occupiedCount, replaceCell } from './board';
+import {
+  blastTargets,
+  collapseWalls,
+  getCell,
+  hashBoard,
+  isCritical,
+  occupiedCount,
+  replaceCell,
+  threshold,
+} from './board';
 import { opponentOf } from './ids';
 import type {
   Board,
@@ -15,7 +24,7 @@ import type {
 function criticalCells(board: Board): CellId[] {
   const ready: CellId[] = [];
   for (const cell of Object.values(board.cells)) {
-    if (cell.count >= cell.neighbors.length) {
+    if (isCritical(cell)) {
       ready.push(cell.id);
     }
   }
@@ -32,7 +41,7 @@ function applyWave(
 
   for (const id of exploded) {
     const cell = getCell({ cells, walls: board.walls }, id);
-    const leftover = cell.count - cell.neighbors.length;
+    const leftover = cell.count - threshold(cell);
     if (leftover < 0) {
       throw new Error(`Cell ${id} exploded below zero`);
     }
@@ -41,7 +50,7 @@ function applyWave(
       count: leftover,
       owner: leftover === 0 ? null : cell.owner,
     };
-    for (const to of cell.neighbors) {
+    for (const to of blastTargets(cell)) {
       transfers.push({ from: id, to });
     }
   }

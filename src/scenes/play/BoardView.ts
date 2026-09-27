@@ -1,9 +1,15 @@
 import Phaser from 'phaser';
-import { boardCells, getCell, mapBounds } from '../../game/engine/board';
+import { boardCells, getCell, isNearCritical, mapBounds } from '../../game/engine/board';
 import { parseCellId } from '../../game/engine/ids';
 import type { Board, CellId, CellState, PlayerId } from '../../game/engine/types';
 import { theme } from '../../game/theme';
-import { cellCenter, layoutBoard, orbOffsets, type BoardLayout } from '../../game/view/layout';
+import {
+  cellCenter,
+  layoutBoard,
+  orbOffsets,
+  reachPips,
+  type BoardLayout,
+} from '../../game/view/layout';
 import type { PlacementPreview } from '../../game/view/preview';
 import { coreTexture, ensureFxTextures, glowTexture, spawnBlast } from './fx';
 
@@ -13,15 +19,29 @@ type CoreVisual = {
   readonly body: Phaser.GameObjects.Image;
 };
 
+/** One gauge pip per outgoing edge, parked on the edge it fires through. */
+type SocketVisual = {
+  readonly arc: Phaser.GameObjects.Arc;
+  readonly ox: number;
+  readonly oy: number;
+};
+
 type CellVisual = {
   readonly id: CellId;
   readonly root: Phaser.GameObjects.Container;
   readonly plate: Phaser.GameObjects.Rectangle;
   readonly rim: Phaser.GameObjects.Rectangle;
-  readonly sockets: Phaser.GameObjects.Arc[];
+  readonly sockets: SocketVisual[];
   readonly cores: CoreVisual[];
   readonly countText: Phaser.GameObjects.Text;
+  /** Direction signature of `sockets`, so a fallen plate can add a new pip. */
+  socketKey: string;
 };
+
+/** Deep cells keep a tighter core cluster so the corner pips stay readable. */
+function coreScale(deep: boolean): { readonly radius: number; readonly size: number } {
+  return deep ? { radius: 0.14, size: 0.28 } : { radius: 0.18, size: 0.4 };
+}
 
 export class BoardView {
   public readonly layout: BoardLayout;
@@ -112,7 +132,7 @@ export class BoardView {
   public blast(ids: readonly CellId[], color: number, intensity: number): void {
     for (const id of ids) {
       const pos = this.worldCenter(id);
-      spawnBlast(this.scene, pos.x, pos.y, color, intensity);
+      spawnBlast(this.scene, pos.x, pos.y, color, intensity, this.board.cells[id]?.deep === true);
     }
   }
 
@@ -270,10 +290,7 @@ export class BoardView {
     const plate = this.scene.add.rectangle(0, 0, size - 6, size - 6, theme.colors.plateInner, 1);
     plate.setStrokeStyle(2, theme.colors.plate, 1);
 
-    const sockets: Phaser.GameObjects.Arc[] = [];
-    for (let i = 0; i < cell.neighbors.length; i += 1) {
-      sockets.push(this.scene.add.circle(0, 0, Math.max(3, size * 0.045), theme.colors.plateEdge, 1));
-    }
+    const sockets: SocketVisual[] = [];
     const cores: CoreVisual[] = [];
     for (let i = 0; i < 4; i += 1) {
       const coreRoot = this.scene.add.container(0, 0);
@@ -294,7 +311,16 @@ export class BoardView {
       .setOrigin(0.5)
       .setAlpha(0);
 
-    const visual: CellVisual = { id: cell.id, root, plate, rim, sockets, cores, countText };
+    const visual: CellVisual = {
+      id: cell.id,
+      root,
+      plate,
+      rim,
+      sockets,
+      cores,
+      countText,
+      socketKey: '',
+    };
 
     plate.setInteractive({ useHandCursor: true });
     plate.on('pointerover', () => {
@@ -309,10 +335,52 @@ export class BoardView {
       this.onChoose(visual.id);
     });
 
-    root.add([rim, plate, ...sockets, ...cores.map((core) => core.root), countText]);
+    const cuts = cell.deep ? this.createDeepCuts(size) : [];
+    root.add([rim, plate, ...cuts, ...cores.map((core) => core.root), countText]);
+    this.syncSockets(visual, cell);
     this.layer.add(root);
     this.paintCell(visual, cell);
     return visual;
+  }
+
+  /**
+   * Keeps one gauge pip per outgoing edge. Rebuilt only when the edge set changes,
+   * which happens when a plate falls and rewires a neighbouring deep cell.
+   */
+  private syncSockets(visual: CellVisual, cell: CellState): void {
+    const pips = reachPips(cell, this.layout.cellSize);
+    const key = pips.map((pip) => pip.id).join('|');
+    if (key === visual.socketKey) {
+      return;
+    }
+    for (const socket of visual.sockets) {
+      socket.arc.destroy();
+    }
+    visual.sockets.length = 0;
+    // Pips render above the deep corner cuts and below the cores.
+    const insertAt = 2 + (cell.deep ? 4 : 0);
+    const radius = Math.max(3, this.layout.cellSize * 0.045);
+    pips.forEach((pip, index) => {
+      const arc = this.scene.add.circle(pip.x, pip.y, radius, theme.colors.plateEdge, 1);
+      visual.root.addAt(arc, insertAt + index);
+      visual.sockets.push({ arc, ox: pip.x, oy: pip.y });
+    });
+    visual.socketKey = key;
+  }
+
+  /** Octagon corners: the one deep marker that survives every owner/state hue. */
+  private createDeepCuts(size: number): Phaser.GameObjects.Triangle[] {
+    const half = (size - 6) / 2;
+    const cut = size * 0.1;
+    const corners: readonly (readonly [number, number, number, number, number, number])[] = [
+      [half, -half, half - cut, -half, half, -half + cut],
+      [half, half, half - cut, half, half, half - cut],
+      [-half, half, -half + cut, half, -half, half - cut],
+      [-half, -half, -half + cut, -half, -half, -half + cut],
+    ];
+    return corners.map((points) =>
+      this.scene.add.triangle(0, 0, ...points, theme.colors.deep, 1),
+    );
   }
 
   private repaintPlates(): void {
@@ -322,10 +390,13 @@ export class BoardView {
   }
 
   private paintCell(visual: CellVisual, cell: CellState): void {
+    this.syncSockets(visual, cell);
     this.paintPlate(visual, cell, false);
     this.paintSockets(visual, cell);
-    const radius = this.layout.cellSize * 0.18;
-    const size = this.layout.cellSize * 0.4;
+    const scale = coreScale(cell.deep);
+    const radius = this.layout.cellSize * scale.radius;
+    const size = this.layout.cellSize * scale.size;
+    const nearCritical = isNearCritical(cell);
     const offsets = orbOffsets(cell.count, radius);
     visual.cores.forEach((core, index) => {
       const slot = offsets[index];
@@ -334,7 +405,6 @@ export class BoardView {
         core.glow.setAlpha(0);
         return;
       }
-      const nearCritical = cell.count === cell.neighbors.length - 1;
       core.root.setPosition(slot.x, slot.y);
       core.body.setTexture(coreTexture(cell.owner));
       core.glow.setTexture(glowTexture(cell.owner));
@@ -343,15 +413,20 @@ export class BoardView {
       core.body.setAlpha(1);
       core.glow.setAlpha(nearCritical ? 0.95 : 0.55);
     });
-    if (cell.count > 4) {
+    // A deep cell's pips already carry the count up to its 8-way threshold, so the
+    // number only appears beyond that (seeded boards, tests).
+    const shown = cell.deep ? 8 : 4;
+    if (cell.count > shown) {
+      const textAt = this.layout.cellSize * 0.32;
       visual.countText.setText(String(cell.count));
+      visual.countText.setPosition(cell.deep ? 0 : textAt, cell.deep ? 0 : -textAt);
       visual.countText.setAlpha(1);
     } else {
       visual.countText.setText('');
       visual.countText.setAlpha(0);
     }
     this.scene.tweens.killTweensOf(visual.rim);
-    if (cell.owner !== null && cell.count === cell.neighbors.length - 1) {
+    if (nearCritical) {
       visual.rim.setAlpha(1);
       this.scene.tweens.add({
         targets: visual.rim,
@@ -372,7 +447,7 @@ export class BoardView {
         continue;
       }
       const visual = this.requireVisual(cell.id);
-      const radius = this.layout.cellSize * 0.18;
+      const radius = this.layout.cellSize * coreScale(cell.deep).radius;
       const offsets = orbOffsets(cell.count, radius);
       const angle = this.spin;
       visual.cores.forEach((core, index) => {
@@ -389,13 +464,10 @@ export class BoardView {
   }
 
   private paintSockets(visual: CellVisual, cell: CellState): void {
-    const degree = cell.neighbors.length;
-    const span = this.layout.cellSize * 0.28;
-    visual.sockets.forEach((pip, index) => {
-      const x = degree === 1 ? 0 : -span + (span * 2 * index) / (degree - 1);
-      pip.setPosition(x, -this.layout.cellSize * 0.36);
+    visual.sockets.forEach((socket, index) => {
+      socket.arc.setPosition(socket.ox, socket.oy);
       const filled = index < cell.count;
-      pip.setFillStyle(filled ? theme.colors.warning : theme.colors.plate, filled ? 1 : 0.55);
+      socket.arc.setFillStyle(filled ? theme.colors.warning : theme.colors.plate, filled ? 1 : 0.55);
     });
   }
 
@@ -407,7 +479,7 @@ export class BoardView {
       visual.plate.setFillStyle(theme.colors.plateHot, 1);
       return;
     }
-    if (cell.owner !== null && cell.count === cell.neighbors.length - 1) {
+    if (isNearCritical(cell)) {
       visual.plate.setFillStyle(0x2a2214, 1);
       visual.plate.setStrokeStyle(2, theme.colors.warning, 0.85);
       return;

@@ -1,25 +1,53 @@
 import { cellId, parseCellId } from './ids';
 import type { Board, CellId, CellState, MapCell, MapDefinition, PlayerId, TokenSeed } from './types';
 
-const ORTHO: readonly { readonly dx: number; readonly dy: number }[] = [
+type Step = { readonly dx: number; readonly dy: number };
+
+const ORTHO: readonly Step[] = [
   { dx: 0, dy: -1 },
   { dx: 1, dy: 0 },
   { dx: 0, dy: 1 },
   { dx: -1, dy: 0 },
 ];
 
+const DIAG: readonly Step[] = [
+  { dx: 1, dy: -1 },
+  { dx: 1, dy: 1 },
+  { dx: -1, dy: 1 },
+  { dx: -1, dy: -1 },
+];
+
 export function orthoNeighborIds(x: number, y: number): readonly CellId[] {
   return ORTHO.map((step) => cellId(x + step.dx, y + step.dy));
 }
 
-function cellNeighbors(cellSet: ReadonlySet<CellId>, x: number, y: number): CellId[] {
-  const neighbors: CellId[] = [];
-  for (const id of orthoNeighborIds(x, y)) {
-    if (cellSet.has(id)) {
-      neighbors.push(id);
-    }
+export function diagNeighborIds(x: number, y: number): readonly CellId[] {
+  return DIAG.map((step) => cellId(x + step.dx, y + step.dy));
+}
+
+function liveCells(cellSet: ReadonlySet<CellId>, ids: readonly CellId[]): CellId[] {
+  return ids.filter((id) => cellSet.has(id));
+}
+
+/**
+ * Detonation threshold: one token per outgoing edge. A deep cell fires into its
+ * diagonals as well, so its threshold is ortho degree + diagonal degree.
+ * Keeping threshold === firing edges is what keeps the cascade token-conserving.
+ */
+export function threshold(cell: CellState): number {
+  return cell.neighbors.length + cell.diagonals.length;
+}
+
+/** Every cell this one dumps a token into when it detonates. */
+export function blastTargets(cell: CellState): readonly CellId[] {
+  if (cell.diagonals.length === 0) {
+    return cell.neighbors;
   }
-  return neighbors;
+  return [...cell.neighbors, ...cell.diagonals];
+}
+
+export function isCritical(cell: CellState): boolean {
+  return cell.count >= threshold(cell);
 }
 
 function collectCoords(
@@ -45,13 +73,15 @@ function rewireCells(cells: Readonly<Record<CellId, CellState>>): Record<CellId,
   const ids = new Set(Object.keys(cells) as CellId[]);
   const next: Record<CellId, CellState> = {};
   for (const cell of Object.values(cells)) {
-    const neighbors = cellNeighbors(ids, cell.x, cell.y);
-    if (neighbors.length === 0) {
+    const neighbors = liveCells(ids, orthoNeighborIds(cell.x, cell.y));
+    const diagonals = cell.deep ? liveCells(ids, diagNeighborIds(cell.x, cell.y)) : [];
+    if (neighbors.length + diagonals.length === 0) {
       throw new Error(`Cell ${cell.id} is isolated after rewire`);
     }
     next[cell.id] = {
       ...cell,
       neighbors,
+      diagonals,
     };
   }
   return next;
@@ -64,17 +94,28 @@ export function createBoard(map: MapDefinition): Board {
 
   const cellCoords = collectCoords(map.cells, 'cell', map.id);
   const wallCoords = collectCoords(map.walls, 'wall', map.id);
+  const deepCoords = collectCoords(map.deep, 'deep cell', map.id);
   for (const id of wallCoords.keys()) {
     if (cellCoords.has(id)) {
       throw new Error(`Map "${map.id}" has overlapping cell and wall ${id}`);
+    }
+  }
+  for (const id of deepCoords.keys()) {
+    if (wallCoords.has(id)) {
+      throw new Error(`Map "${map.id}" marks wall ${id} as deep`);
+    }
+    if (!cellCoords.has(id)) {
+      throw new Error(`Map "${map.id}" marks unknown cell ${id} as deep`);
     }
   }
 
   const cellSet = new Set(cellCoords.keys());
   const cells: Record<CellId, CellState> = {};
   for (const [id, coord] of cellCoords) {
-    const neighbors = cellNeighbors(cellSet, coord.x, coord.y);
-    if (neighbors.length === 0) {
+    const deep = deepCoords.has(id);
+    const neighbors = liveCells(cellSet, orthoNeighborIds(coord.x, coord.y));
+    const diagonals = deep ? liveCells(cellSet, diagNeighborIds(coord.x, coord.y)) : [];
+    if (neighbors.length + diagonals.length === 0) {
       throw new Error(`Map "${map.id}" has isolated cell ${id}`);
     }
     cells[id] = {
@@ -82,6 +123,8 @@ export function createBoard(map: MapDefinition): Board {
       x: coord.x,
       y: coord.y,
       neighbors,
+      diagonals,
+      deep,
       count: 0,
       owner: null,
     };
@@ -89,7 +132,11 @@ export function createBoard(map: MapDefinition): Board {
 
   const walls: CellId[] = [];
   for (const [id, coord] of wallCoords) {
-    const touchesCell = orthoNeighborIds(coord.x, coord.y).some((neighbor) => cellSet.has(neighbor));
+    const touchesCell =
+      orthoNeighborIds(coord.x, coord.y).some((neighbor) => cellSet.has(neighbor)) ||
+      diagNeighborIds(coord.x, coord.y).some(
+        (neighbor) => cellSet.has(neighbor) && deepCoords.has(neighbor),
+      );
     if (!touchesCell) {
       throw new Error(`Map "${map.id}" has orphan wall ${id}`);
     }
@@ -137,7 +184,7 @@ export function tokenCount(board: Board, player: PlayerId): number {
 }
 
 export function isNearCritical(cell: CellState): boolean {
-  return cell.owner !== null && cell.count === cell.neighbors.length - 1 && cell.count > 0;
+  return cell.owner !== null && cell.count === threshold(cell) - 1 && cell.count > 0;
 }
 
 export function nearCriticalCount(board: Board, player: PlayerId): number {
@@ -231,6 +278,13 @@ export function collapseWalls(
     const pos = parseCellId(wallId);
     if (orthoNeighborIds(pos.x, pos.y).some((neighbor) => explodedSet.has(neighbor))) {
       falling.push(wallId);
+      continue;
+    }
+    const deepShock = diagNeighborIds(pos.x, pos.y).some(
+      (neighbor) => explodedSet.has(neighbor) && board.cells[neighbor]?.deep === true,
+    );
+    if (deepShock) {
+      falling.push(wallId);
     }
   }
   falling.sort();
@@ -247,6 +301,8 @@ export function collapseWalls(
       x: pos.x,
       y: pos.y,
       neighbors: [],
+      diagonals: [],
+      deep: false,
       count: 0,
       owner: null,
     };

@@ -35,6 +35,7 @@ export function spawnBlast(
   y: number,
   color: number,
   intensity: number,
+  deep = false,
 ): void {
   const flash = scene.add.circle(x, y, 16 * intensity, 0xffffff, 0.85);
   flash.setBlendMode(Phaser.BlendModes.ADD);
@@ -62,6 +63,31 @@ export function spawnBlast(
       ring.destroy();
     },
   });
+
+  if (deep) {
+    const length = 46 + intensity * 24;
+    const beams = scene.add.graphics();
+    beams.setBlendMode(Phaser.BlendModes.ADD);
+    beams.setDepth(11);
+    beams.lineStyle(3, color, 0.9);
+    for (const [sx, sy] of [
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
+    ] as const) {
+      beams.lineBetween(x, y, x + sx * length, y + sy * length);
+    }
+    scene.tweens.add({
+      targets: beams,
+      alpha: 0,
+      duration: 300,
+      ease: 'Cubic.Out',
+      onComplete: () => {
+        beams.destroy();
+      },
+    });
+  }
 
   const sparks = 8 + Math.round(intensity * 4);
   for (let i = 0; i < sparks; i += 1) {

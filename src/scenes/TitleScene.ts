@@ -7,7 +7,7 @@ import { CAMPAIGN, type Mission } from '../game/ops/campaign';
 import { browserStore, isMissionUnlocked, loadProgressOrReset, starsFor } from '../game/ops/progress';
 import { MAPS, MAP_LIST, isMapId, type MapId } from '../game/maps';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, theme } from '../game/theme';
-import { cellCenter, layoutBoard } from '../game/view/layout';
+import { cardGrid, cellCenter, layoutBoard } from '../game/view/layout';
 import { publicAsset } from '../lib/publicAsset';
 import { addWordmark, makePanelButton } from './ui/chrome';
 
@@ -154,13 +154,32 @@ export class TitleScene extends Phaser.Scene {
       });
     });
 
+    // Nine maps fill a 3x3; the deep-field tenth needs a fourth column to stay on screen.
+    const cols = MAP_LIST.length > 9 ? 4 : 3;
+    const placements = cardGrid(MAP_LIST.length, cols, {
+      firstX: cols === 4 ? 175 : 230,
+      topY: 258,
+      pitchX: 310,
+      pitchY: 142,
+      centerX: CANVAS_WIDTH / 2,
+    });
     MAP_LIST.forEach((map, index) => {
-      const col = index % 3;
-      const row = Math.floor(index / 3);
+      const place = placements[index];
+      if (place === undefined) {
+        throw new Error(`MAP_LIST placement missing for index ${index}`);
+      }
       if (!isMapId(map.id)) {
         throw new Error(`MAP_LIST contains unknown id ${map.id}`);
       }
-      this.drawMapCard(map.id, map.name, map.cells.length, map.walls.length, 230 + col * 310, 258 + row * 142);
+      this.drawMapCard(
+        map.id,
+        map.name,
+        map.cells.length,
+        map.walls.length,
+        map.deep.length,
+        place.x,
+        place.y,
+      );
     });
 
     makePanelButton(this, 120, CANVAS_HEIGHT - 48, 160, 44, 'BACK', () => {
@@ -235,7 +254,15 @@ export class TitleScene extends Phaser.Scene {
     });
   }
 
-  private drawMapCard(mapId: MapId, name: string, cellCount: number, wallCount: number, x: number, y: number): void {
+  private drawMapCard(
+    mapId: MapId,
+    name: string,
+    cellCount: number,
+    wallCount: number,
+    deepCount: number,
+    x: number,
+    y: number,
+  ): void {
     const card = this.keep(this.add.rectangle(x, y, 296, 128, theme.colors.plateInner, 0.88));
     card.setStrokeStyle(2, theme.colors.plateEdge, 1);
     this.drawSchematic(mapId, x, y - 18);
@@ -249,9 +276,11 @@ export class TitleScene extends Phaser.Scene {
         })
         .setOrigin(0.5),
     );
+    const wallLine = wallCount > 0 ? ` · ${wallCount} ${wallCount === 1 ? 'PLATE' : 'PLATES'}` : '';
+    const deepLine = deepCount > 0 ? ` · ${deepCount} DEEP` : '';
     this.keep(
       this.add
-        .text(x, y + 54, wallCount > 0 ? `${cellCount} CELLS · ${wallCount} ${wallCount === 1 ? 'PLATE' : 'PLATES'}` : `${cellCount} CELLS`, {
+        .text(x, y + 54, `${cellCount} CELLS${wallLine}${deepLine}`, {
           fontFamily: theme.fonts.mono,
           fontSize: '13px',
           color: theme.colors.hudMuted,
@@ -285,7 +314,8 @@ export class TitleScene extends Phaser.Scene {
     const layout = layoutBoard(board, { x: x - 88, y: y - 40, width: 176, height: 68 });
     for (const cell of Object.values(board.cells)) {
       const pos = cellCenter(layout, cell.x, cell.y);
-      this.keep(this.add.rectangle(pos.x, pos.y, layout.cellSize - 1, layout.cellSize - 1, theme.colors.plateEdge, 0.95));
+      const tint = cell.deep ? theme.colors.deep : theme.colors.plateEdge;
+      this.keep(this.add.rectangle(pos.x, pos.y, layout.cellSize - 1, layout.cellSize - 1, tint, 0.95));
     }
     for (const wallId of board.walls) {
       const pos = parseCellId(wallId);
