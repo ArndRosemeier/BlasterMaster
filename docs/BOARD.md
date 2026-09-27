@@ -36,7 +36,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: a583cae37afe33b8bd526c5f73562e1e1f8be924 · 2026-09-27T18:3xZ
+reconciled: a0bdd42e83d6eb3a543aa38bcdad4ef2ce2f78b9 · 2026-09-27T19:27Z
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -159,31 +159,40 @@ LANDED | row=18 | sha=310cdbc | verify=DISPATCHER'S OWN: (1) my own `npm run gat
   that layout is UNVERIFIED by eye — the owner's look, and it is published.
 
 
-IN-FLIGHT | row=19 | writer=session-9e66e5c2-c677-49c2-b7bb-b64b960b56c1
-  | worktree=/home/administrator/projects/BlasterMaster/worktrees/eater-juice | branch=feat/eater-juice
-  | base=a583cae | dispatched_by=session-1e324382
-  | state=dispatched 2026-09-27T18:3xZ, deps installed, no commit yet
-  | note=EATER PRESENTATION, the owner's three bullets. BULLET 1 ("eaters only move if there is
-  something to eat next to them, not diagonally") WAS ALREADY THE ENGINE'S BEHAVIOUR and is NOT
-  work: `nextMeal` iterates `orthoNeighborIds` only, skips squares another eater occupies, and
-  selects nothing unless a neighbour holds `count > 0` (so it stays put); the pins "stays put when
-  nothing beside it has tokens" and "never treats another eater as a meal" already hold. The
-  dispatcher verified this BEFORE dispatching so the owner is not billed for a no-op, and told the
-  writer to report BLOCKED rather than change the engine.
-  THE SLICE is the other two: (a) SMOOTH MOVEMENT — the view keys its visual by square, so a move
-  is currently a teleport; the glide must be a straight axis-aligned line (an arc would suggest
-  diagonal travel, which is exactly the rule the motion must not contradict) and `PlayScene` must
-  AWAIT it so steps never overlap; (b) NO TEXT — `EaterVisual.count` is a `Text` today and must go,
-  replaced by spheres inside the body plus a pulse whose rate/intensity scales with
-  `hoard / deepDegree(cell)` — the ENGINE'S helper, never a hardcoded 3 or 8 — so a corner eater
-  (threshold 3) reads "about to blow" when an interior one does not; and (c) A REVEAL BEFORE THE
-  FIRST MOVE — a newly revealed eater must emerge from the broken square rather than appear, using
-  the wave's `collapsed` and the activation step's `from`.
-  THE MATHS GOES IN A PURE, TESTED HELPER (`src/game/view/`, the `reachPips`/`orbOffsets` pattern):
-  there is NO browser in this environment, so anything not expressible as pure maths is unverifiable
-  by anyone until the owner looks — the helper is what makes this slice checkable at all.
-  FPS budget: five eaters can coexist (a five-plate map; my soak saw ~2000 live-eater observations
-  per 40 games on THE SEAM), so no per-frame allocation per sphere.
+LANDED | row=19 | sha=a0bdd42 | verify=DISPATCHER'S OWN: my own `npm run gate` on the rebased tree
+  and on the merged tip → exit 0 FULL GREEN, typecheck 0 · lint 0 · **130 tests / 18 files** · build 0
+  (logs …T192652Z-4041734.log, …T192742Z-4044746.log). MY three injections, each restored
+  BYTE-IDENTICAL from an out-of-tree copy (the TRAP's rule, followed, and `cmp -s` checked):
+  hardcoding `critical` to 8 reds BOTH "makes the boundary hoards read differently, and a full corner
+  unmistakable" and "reads the threshold the engine gives the square, not a fixed degree"; making
+  `heat` constant reds the boundary pin; and emitting NO `emerge` cues reds "emerges a revealed eater
+  out of the fallen square before its first move" AND the real-engine plan soak. That soak runs in
+  the suite: `turns=2458 reveals=119 moves=445 detonations=115` across the five wall maps × 8 seeds.
+  | retired=worktree /home/administrator/projects/BlasterMaster/worktrees/eater-juice · branch
+  feat/eater-juice (`-d`, merged; only the main tree remains) · writer session 9e66e5c2 finished ·
+  host audit after: suites=none browsers=none
+  | note=THE PRESENTATION. `src/game/view/eaterView.ts` is PURE (no Phaser) and tested:
+  `eaterShell(hoard, threshold)` → `spheres = min(hoard, 8)`, `pulseRate = 0.5 + 2.5·fill`,
+  `pulseDepth = 0.04 + 0.14·fill`, `heat = clamp(hoard/threshold, 0, 1)`,
+  `critical = hoard >= threshold`; `shellOffsets` lays a clockwise ring from north (≤8); and
+  `eaterPlan(waves, eaters, board)` turns engine output into ordered cues
+  `wave | emerge | move | hold | detonate`, taking EVERY threshold from the engine's own
+  `deepDegree(getCell(board, square))` — never a hardcoded 3 or 8. `BoardView` renders spheres inside
+  the body and the old hoard `Text` is gone; the glide is a STRAIGHT AXIS-ALIGNED line that
+  `PlayScene` awaits (an arc would imply diagonal travel, which is the one thing the motion must not
+  suggest); a reveal is attached to the very wave whose `collapsed` names the square, so the eater
+  rises right after the shatter and before any move; and eater bodies are created ONLY by
+  `emergeEater`, so an eater can never simply appear (documented cost: an engine path adding an eater
+  outside a wave's `collapsed` would be invisible — grep confirms no such path exists).
+  BULLET 1 WAS ALREADY TRUE and needed no engine change (the SPEC records the verification):
+  `nextMeal` is ortho-only, skips other eaters' squares, and selects nothing unless a neighbour holds
+  tokens, so an eater with nothing to eat stays put.
+  UNVERIFIED — AND IT IS THE WHOLE POINT OF THIS SLICE (no browser on this host): sphere legibility at
+  the shipped cell size, whether the ring crowds at 8, whether the pulse spread actually reads as
+  "about to detonate", whether the emergence and the blast-consumption read at all, and whether the
+  glide feels like a step rather than a teleport. The pure maths and the engine-output ordering are
+  verified; the LOOK is the owner's, and it is PUBLISHED for him.
+
 
 LANDED | row=1 | sha=ab2b552 | verify=DISPATCHER'S OWN full loop on exactly this tree:
   typecheck exit 0 · lint exit 0 · 65 tests / 12 files · build exit 0. `scripts/gate.sh` exists
@@ -654,11 +663,13 @@ RECOVERY | A successor starts here: (1) `npm install`, (2) `npm run board` (reco
   gate` BEFORE any change, (5) `npm run publish` to make a build LIVE — `git push` does not publish.
   Landings, oldest first: `ab2b552` deep cells · `b475fd1` the process · `5ec65c3` duplication folds ·
   `29f78f6` AI rule-derivation · `b20f5a6` the tripwire · `871875a` armored plates · `ea3018d` the
-  eater · `b102c38` the stalemate rule + the AI-stays-blind decision · `310cdbc` every fallen plate
-  reveals an eater (the `@` housing distinction deleted). Outstanding owner forks: row=4 (a DEEP
-  FIELD campaign mission). Queued work: row=8 (the AI's calibration debt, GROWN by row=18), row=9 (a
-  small TitleScene fold). CLOSED by owner decision: row=15 (the AI stays blind to eaters). No writer
-  worktrees, no writer sessions, one goal — the chief-of-staff goal, paused.
+  eater · `b102c38` the stalemate rule + AI-stays-blind · `310cdbc` every fallen plate reveals an
+  eater · `a0bdd42` eater presentation (spheres, glide, reveal-before-move). Outstanding owner forks:
+  row=4 (a DEEP FIELD campaign mission). Queued work: row=8 (the AI's calibration debt, GROWN by
+  row=18), row=9 (a small TitleScene fold). CLOSED by owner decision: row=15 (the AI stays blind to
+  eaters). Open verification the OWNER owes himself: the eater/neutral/ghost/map-card LOOK — no
+  browser exists here, so every visual claim in this file is pure maths plus the owner's eyes. No
+  writer worktrees, no writer sessions, one goal — the chief-of-staff goal, paused.
 ```
 
 ## The gate
