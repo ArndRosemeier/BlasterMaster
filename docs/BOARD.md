@@ -34,7 +34,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: b20f5a6724c274f9fb54423aa6ff5ef01a1e4809 · 2026-09-27T15:39Z
+reconciled: df635b7aba63b0d5c170e04ba76a4102fa4fab25 · 2026-09-27T16:3xZ
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -180,6 +180,27 @@ QUEUE | row=8 | RE-CHECK THE CAMPAIGN STAR THRESHOLDS after the row=3 AI judgeme
   Reserved; NOT ordered. It is the honest cost of letting the owner's rule changes flow into the
   AI automatically — the AI got the new rule for free, and its calibration debt came with it.
 
+LANDED | row=11 | sha=7cde352 | verify=DISPATCHER'S OWN, by CONTENT and not by exit
+  code: the published app now serves `assets/index-B9fTQCbK.js`, `last-modified` today, and that
+  bundle contains `DEEP FIELD` — checked at the resolved target, through the host's static server
+  (HTTP 200), and over `https://apps.futuremagic.de/BlasterMaster/`. `npm run publish` re-run
+  afterwards: exit 0, same content hash, verified.
+  | note=THE OWNER REPORTED A REAL DEFECT: "I do not see a 10th map in the published version."
+  The published artifact was a build from 2026-09-26 19:54 (`assets/index-BdmLiUz6.js`) — older
+  than every landing today — and DEEP FIELD is skirmish-only, so the campaign path never showed
+  it either. Two mechanical traps caused it, both now closed by `scripts/publish.sh` +
+  `npm run publish`: (a) NOTHING in the push path touches `~/apps/<slug>`, so the site silently
+  serves the last copy (`git push` is not a publish in this project); (b) the default
+  `npm run build` is a ROOT-base build and renders BLANK under `/BlasterMaster/` — the script
+  builds with `BLASTER_MASTER_BASE=/BlasterMaster/` and REFUSES a build whose entry does not carry
+  the subpath. `docs/HOW_WE_DO_IT.md` claimed the env var's default was `/BlasterMaster/`; it is
+  `/`, and that wrong line was corrected in the same commit. Publishing details worth knowing:
+  `~/apps/BlasterMaster` is a SYMLINK into `/home/administrator/projects/Migration/apps/BlasterMaster`
+  (the script resolves and prints it before writing); the entry page is served `cf-cache-status:
+  DYNAMIC` (no edge cache, so a refresh shows a new build at once); `futuremagic.de/BlasterMaster/`
+  301s to `apps.futuremagic.de/BlasterMaster/`; the hub already lists this app, so step 7 of the
+  publish skill (hub rebuild) was NOT needed and no other app folder was touched.
+
 QUEUE | row=9 | FOLD THE SMALL `TitleScene.ts` DUPLICATION the tripwire can see but its floor
   excludes: the BACK-button callback at line 123 (drawOps) and line 184 (drawSkirmish) are
   identical 51-char normalized bodies (three statements: `playSound('ui')`, `this.view = 'root'`,
@@ -197,6 +218,19 @@ LANDED | row=5 | sha=47b7742 | verify=DISPATCHER'S OWN: `git push origin HEAD:ma
   `main` is NOT a deploy trigger in this repo (deploy is the manual `deploy:sync` FTP script),
   so nothing shipped to the live site. | retired=nothing | note=owner's answer to the fork:
   "Push both landings to origin/main (Recommended)".
+
+TRAP | "THE CODE IS PUSHED" IS NOT "THE SITE IS LIVE". The published app is a SEPARATE ARTIFACT
+  under `~/apps/<slug>` (a symlink into another root), and nothing in the push path updates it, so
+  it keeps serving whatever was last copied there. Measured 2026-09-27: the owner saw a 9-map build
+  from the previous day while `origin/main` already had the tenth map. RULE: publish with
+  `npm run publish` and judge it by CONTENT — a static host answers `200` for a stale copy exactly
+  as happily as for a fresh one.
+
+TRAP | The subpath build is NOT the default build. `vite.config.ts` defaults `BLASTER_MASTER_BASE`
+  to `/`, so a plain `npm run build` produces a root-base bundle whose `/assets/...` URLs resolve
+  against the origin root and render a BLANK page under `https://apps.futuremagic.de/BlasterMaster/`.
+  `docs/HOW_WE_DO_IT.md` had this backwards until 2026-09-27. RULE: only `npm run publish` builds
+  for the host, and it refuses a build whose entry does not carry the subpath.
 
 TRAP | A DUPLICATE SCAN'S SCOPE IS THE THING MOST LIKELY TO BE WRONG — measure the scanner
   against the HAZARD, never against itself. The row=6 audit parsed only named function
@@ -271,10 +305,13 @@ GUARD | worktrees-cannot-pollute-the-main-gate | writers work in `worktrees/<sli
   dispatcher's gate. VERIFIED BY INJECTION 2026-09-27 (row=2): a poisoned probe tree went RED
   at 66 tests while the main tree stayed GREEN at exactly 65.
 
-RECOVERY | A successor starts here: (1) `npm install` (deps are gitignored), (2) `npm run
-  board`, (3) read `docs/DECISIONS.md`, (4) `npm run gate` BEFORE any change. The deep-cell
-  landing is `ab2b552`; the only outstanding owner fork is QUEUE row=5 (push or not). There
-  are no writer worktrees, no writer sessions, and one goal — the chief-of-staff goal, paused.
+RECOVERY | A successor starts here: (1) `npm install` (deps are gitignored), (2) `npm run board`,
+  (3) read `docs/DECISIONS.md`, (4) `npm run gate` BEFORE any change, (5) `npm run publish` to make a
+  build LIVE — `git push` does not publish, and neither does `npm run build`. Landings: `ab2b552`
+  deep cells · `b475fd1` the process · `5ec65c3` duplication folds · `29f78f6` AI rule-derivation ·
+  `b20f5a6` the tripwire. Outstanding owner forks: QUEUE rows 4 (a DEEP FIELD campaign mission),
+  8 (measure the AI's calibration debt) and 9 (fold the small TitleScene duplication). There are no
+  writer worktrees, no writer sessions, and one goal — the chief-of-staff goal, paused.
 ```
 
 ## The gate
