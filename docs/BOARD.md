@@ -412,6 +412,15 @@ GUARD | geometry-has-one-home | `eslint.config.js` errors on `.neighbors`/`.diag
   injection: `.neighbors` into any other src file → lint exit 1; `.deep` in a non-ai view file →
   clean (it is a display flag the view may read); `.deep` in `ai/*.test.ts` → error. Known limit:
   hardcoded rule NUMBERS are not caught (see the TRAP on the syntactic guard).
+GUARD | heavy-check-overlap | the gate lock is honoured — it resolves to the same path from the
+  main tree and every worktree (measured: `--git-common-dir` is `.git` in the main tree and the
+  absolute path in a worktree, so both yield `<repo>/.blastermaster-lock`) — but a DIRECT test run
+  does not take the lock, by design, because the doctrine exempts cheap checks. Measured
+  2026-09-27: a writer verifying its pins with `vitest run src/game/engine/engine.test.ts` held
+  3.4GB in ONE worker (4.2GB across 14 processes) WHILE the dispatcher's gate ran, and memAvailable
+  fell from 15.7GB to 12.7GB. RULE: the exemption is for CHEAP checks; a heavy or long direct run is
+  an overlap someone must choose knowingly, and the gate's foreign-suite diagnostic is what shows
+  it. Never reap another actor's live suite — the processes were left alone.
 GUARD | gate-diagnostic-honesty | the foreign-suite line matches only `node.*(vitest|vite)`, because
   the looser `vitest|vite` pattern matched the gate's OWN caller — a `bash -c` whose commit message
   mentioned `vite.config.ts` — and reported it as a foreign suite (measured 2026-09-27). It is a
