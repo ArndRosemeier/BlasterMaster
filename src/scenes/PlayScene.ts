@@ -11,6 +11,7 @@ import { requirePlaySceneData, type PlaySceneData } from '../game/ops/session';
 import { addTurn, awardStars, emptyStats, type MatchStats, type StarAward } from '../game/ops/stats';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, ownerLook, playerTheme, theme } from '../game/theme';
 import { eaterPlan, type EaterCue } from '../game/view/eaterView';
+import { missionIntro } from '../game/view/layout';
 import { previewPlacement } from '../game/view/preview';
 import { BoardView } from './play/BoardView';
 import { flyToken } from './play/fx';
@@ -51,6 +52,10 @@ export class PlayScene extends Phaser.Scene {
     this.mission = this.session.mode === 'ai' && this.session.missionId !== undefined
       ? missionById(this.session.missionId)
       : null;
+    // A mission that introduces a mechanic says so ONCE, here, before the first
+    // move: the banner names it and the coach line states the rule. The ordinary
+    // per-turn coach takes the line back on the first move (see `footerLine`).
+    const intro = this.mission === null ? null : missionIntro(this.mission);
 
     stopTitleTheme();
     this.add.image(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 'bg-play').setDisplaySize(CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -97,9 +102,12 @@ export class PlayScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setAlpha(0);
+    if (intro !== null && intro.banner !== null) {
+      this.flashBanner(intro.banner);
+    }
 
     this.coachText = this.add
-      .text(CANVAS_WIDTH / 2, CANVAS_HEIGHT - 28, this.footerLine(), {
+      .text(CANVAS_WIDTH / 2, CANVAS_HEIGHT - 28, intro === null ? this.footerLine() : intro.line, {
         fontFamily: theme.fonts.mono,
         fontSize: '14px',
         color: theme.colors.hudMuted,

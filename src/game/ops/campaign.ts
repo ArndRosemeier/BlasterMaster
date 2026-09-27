@@ -1,5 +1,5 @@
 import type { AiDifficulty } from '../ai/choose';
-import type { MapId } from '../maps';
+import { isMapId, type MapId } from '../maps';
 
 export type MissionId =
   | 'op-spark'
@@ -10,7 +10,21 @@ export type MissionId =
   | 'op-ring'
   | 'op-airlock'
   | 'op-bolts'
-  | 'op-seam';
+  | 'op-seam'
+  | 'op-deep'
+  | 'op-armor'
+  | 'op-nest';
+
+/**
+ * A one-shot explanation of a mechanic, carried by the ONE mission that first
+ * introduces it. `PlayScene` shows it once when the board opens (banner + coach
+ * line) and `TitleScene` tags the mission card with its title; no mission after
+ * the first may repeat a title, so a mechanic is never taught twice.
+ */
+export type MechanicBrief = {
+  readonly title: string;
+  readonly text: string;
+};
 
 export type Mission = {
   readonly id: MissionId;
@@ -20,6 +34,11 @@ export type Mission = {
   readonly coach: string;
   readonly mapId: MapId;
   readonly difficulty: AiDifficulty;
+  /**
+   * Present ONLY on the mission that introduces a mechanic. Absent means this
+   * mission teaches nothing new and the player keeps the coach line they had.
+   */
+  readonly brief?: MechanicBrief;
   readonly swiftMoves: number;
   readonly cascadeWaves: number;
 };
@@ -33,6 +52,10 @@ export const CAMPAIGN: readonly Mission[] = [
     coach: 'Stack a corner to 2. It splits. Then wash over Cyan.',
     mapId: 'spark',
     difficulty: 'cadet',
+    brief: {
+      title: 'THE CORE RULE',
+      text: 'A CELL DETONATES AT ITS NEIGHBOUR COUNT. THE PIPS ARE ITS REACH — ONE TOKEN DOWN EACH PIP. LEFTOVER HOLDS.',
+    },
     swiftMoves: 10,
     cascadeWaves: 2,
   },
@@ -100,6 +123,10 @@ export const CAMPAIGN: readonly Mission[] = [
       'BLOW THE FRAME TO OPEN THE ROOMS. AN EATER RISES ON THAT PLATE. CLEAR THE SQUARES BESIDE IT BEFORE YOU SWING.',
     mapId: 'airlock',
     difficulty: 'operator',
+    brief: {
+      title: 'PLATES',
+      text: 'PLATES ARE PENDING CELLS. A BLAST BESIDE ONE DROPS IT AND THE SQUARE OPENS — EVERY FALLEN PLATE FREES AN EATER THERE.',
+    },
     swiftMoves: 20,
     cascadeWaves: 3,
   },
@@ -126,6 +153,59 @@ export const CAMPAIGN: readonly Mission[] = [
     swiftMoves: 32,
     cascadeWaves: 4,
   },
+  // Missions 10-12 carry the three maps that had no campaign mission. The ramp is
+  // deep geometry -> plate durability -> a whole new actor.
+  //
+  // `swiftMoves`/`cascadeWaves` BELOW ARE PLACEHOLDERS, chosen by analogy with the
+  // closest existing gate (op-deep <- THE RING, op-armor <- THE SEAM, op-nest <- THE
+  // SEAM plus a wave of eater chaos). NOTHING has been measured against the current
+  // AI: board row=8 owns the calibration measurement, and these numbers must not be
+  // tuned here (nor may the existing nine be touched).
+  {
+    id: 'op-deep',
+    index: 9,
+    title: '10  DEEP FIELD',
+    dossier: 'Corner cells count three, the heart counts eight. Blasts run the diagonals.',
+    coach: 'GUN THE CORNERS. A THREE-STACK THERE IS A DIAGONAL BOMB. DO NOT FEED THE HEART.',
+    mapId: 'deep',
+    difficulty: 'director',
+    brief: {
+      title: 'DEEP CELLS',
+      text: 'A DEEP CELL COUNTS THE DIAGONALS TOO: A CORNER IS 3, AN INTERIOR SQUARE 8. IT ALSO FIRES INTO THEM.',
+    },
+    swiftMoves: 28,
+    cascadeWaves: 4,
+  },
+  {
+    id: 'op-armor',
+    index: 10,
+    title: '11  BULKHEAD',
+    dossier: 'A steel spine. Its three middle plates take two hits: cracking is tempo, dropping is commitment.',
+    coach: 'CRACK THE SPINE FIRST, THEN PICK THE ONE PLATE YOU ACTUALLY DROP.',
+    mapId: 'bulkhead',
+    difficulty: 'director',
+    brief: {
+      title: 'ARMORED PLATES',
+      text: 'AN ARMORED PLATE TAKES TWO DETONATIONS: THE FIRST ONLY CRACKS IT, THE SECOND DROPS IT.',
+    },
+    swiftMoves: 32,
+    cascadeWaves: 4,
+  },
+  {
+    id: 'op-nest',
+    index: 11,
+    title: '12  NEST',
+    dossier: 'Two plates on the rim, two deep hearts inside. The fattest pile beside a plate arms its eater fastest.',
+    coach: 'DROP A PLATE ONLY WHEN YOU CAN SURVIVE WHAT EATS ITS WAY OUT OF IT.',
+    mapId: 'nest',
+    difficulty: 'director',
+    brief: {
+      title: 'EATERS',
+      text: 'A FALLEN PLATE REVEALS AN EATER. IT EATS THE BIGGEST PILE BESIDE IT, THEN DETONATES AT THE DEEP DEGREE OF ITS SQUARE — A NEUTRAL FLOOD, AND IT IS GONE.',
+    },
+    swiftMoves: 34,
+    cascadeWaves: 4,
+  },
 ];
 
 export function missionById(id: MissionId): Mission {
@@ -143,4 +223,43 @@ export function isMissionId(value: string): value is MissionId {
 export function nextMission(id: MissionId): Mission | null {
   const current = missionById(id);
   return CAMPAIGN[current.index + 1] ?? null;
+}
+
+/**
+ * The campaign's map-facing shape, deliberately LOOSER than `Mission` so the
+ * hand-written table can be checked at a boundary. `Mission.mapId` is a `MapId`,
+ * which already makes a typo a compile error — but this is the runtime twin of
+ * that guarantee, so a mission that reached the table through a cast (or a future
+ * data source that is not typed) still fails loudly instead of rendering a dead
+ * card.
+ */
+export type MissionShape = {
+  readonly id: string;
+  readonly index: number;
+  readonly mapId: string;
+  readonly brief?: { readonly title: string } | undefined;
+};
+
+/**
+ * Every reason a mission table cannot be played. A mission must point at a shipped
+ * map, and a mission carrying a mechanic brief must have a map to teach it on.
+ */
+export function campaignProblems(missions: readonly MissionShape[] = CAMPAIGN): readonly string[] {
+  const problems: string[] = [];
+  for (const mission of missions) {
+    if (!isMapId(mission.mapId)) {
+      problems.push(`mission "${mission.id}" points at unknown map "${mission.mapId}"`);
+    }
+    if (mission.brief !== undefined && mission.mapId.trim() === '') {
+      problems.push(`mission "${mission.id}" has a mechanic brief but no map`);
+    }
+  }
+  return problems;
+}
+
+export function assertCampaignIntegrity(missions: readonly MissionShape[] = CAMPAIGN): void {
+  const problems = campaignProblems(missions);
+  if (problems.length > 0) {
+    throw new Error(`Campaign is invalid: ${problems.join('; ')}`);
+  }
 }

@@ -1,6 +1,8 @@
 import { blastTargets, boardCells, mapBounds } from '../engine/board';
 import { cellId } from '../engine/ids';
 import type { Board, CellId, CellState, MapDefinition } from '../engine/types';
+import type { Mission } from '../ops/campaign';
+import { CANVAS_WIDTH } from '../theme';
 
 export type BoardArea = {
   readonly x: number;
@@ -97,6 +99,31 @@ export function cardGrid(
   return placements;
 }
 
+/**
+ * A title panel keeps three card columns until a fourth row would land under the
+ * BACK panel; from ten cards on it takes a fourth column instead. ONE home for
+ * that rule, shared by the OPERATIONS and SKIRMISH panels.
+ */
+export function menuColumns(count: number): number {
+  return count > 9 ? 4 : 3;
+}
+
+/**
+ * A title panel's card grid: `cardGrid` with the panels' own arguments, never a
+ * second placement implementation. Both panels start at x=230 for three columns
+ * (the legacy coordinates, unchanged) and x=175 for four.
+ */
+export function menuGrid(count: number, topY: number): readonly GridPlacement[] {
+  const cols = menuColumns(count);
+  return cardGrid(count, cols, {
+    firstX: cols === 4 ? 175 : 230,
+    topY,
+    pitchX: 310,
+    pitchY: 142,
+    centerX: CANVAS_WIDTH / 2,
+  });
+}
+
 export type MapCardText = {
   /** The counts line: cells, standing plates, deep cells, armored plates. */
   readonly counts: string;
@@ -122,6 +149,37 @@ export function mapCardText(map: MapDefinition): MapCardText {
     counts: `${map.cells.length} CELLS${wallLine}${deepLine}${armorLine}`,
     reveal: map.walls.length > 0 ? 'EVERY FALL FREES AN EATER' : '',
   };
+}
+
+/**
+ * The mission card's lower line: the difficulty tier, plus the mechanic this
+ * mission FIRST introduces. A mission that teaches nothing shows its tier alone —
+ * one line, so the brief tag never competes for card height with the title,
+ * dossier or star line.
+ */
+export function missionCardTag(mission: Mission): string {
+  const tier = mission.difficulty.toUpperCase();
+  return mission.brief === undefined ? tier : `${tier}  ·  ${mission.brief.title}`;
+}
+
+export type MissionIntro = {
+  /** The banner flashed ONCE when the board opens; null when there is no brief. */
+  readonly banner: string | null;
+  /** The coach line shown before the first move; the ordinary coach returns after it. */
+  readonly line: string;
+};
+
+/**
+ * What a mission says at the moment the player meets it. A mission carrying a
+ * mechanic brief names it on the banner and states the rule on the coach line; a
+ * mission that introduces nothing keeps its ordinary coach line, so the per-turn
+ * coach/footer flow is untouched.
+ */
+export function missionIntro(mission: Mission): MissionIntro {
+  if (mission.brief === undefined) {
+    return { banner: null, line: mission.coach };
+  }
+  return { banner: mission.brief.title, line: `BRIEF  ·  ${mission.brief.text}` };
 }
 
 /** Clockwise from north. Offsets are fractions of the cell size. */

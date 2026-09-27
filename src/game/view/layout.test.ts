@@ -3,8 +3,19 @@ import { createBoard, getCell } from '../engine/board';
 import { cellId } from '../engine/ids';
 import type { CellId } from '../engine/types';
 import { BULKHEAD, NEST, SPARK, cellsFromRows, mapFromRows } from '../maps';
+import { CAMPAIGN, missionById } from '../ops/campaign';
 import { CANVAS_WIDTH } from '../theme';
-import { cardGrid, cellCenter, layoutBoard, mapCardText, orbOffsets, reachPips } from './layout';
+import {
+  cardGrid,
+  cellCenter,
+  layoutBoard,
+  mapCardText,
+  menuGrid,
+  missionCardTag,
+  missionIntro,
+  orbOffsets,
+  reachPips,
+} from './layout';
 
 describe('layoutBoard', () => {
   it('centers a 2x2 inside the given area', () => {
@@ -93,6 +104,59 @@ describe('cardGrid', () => {
     expect(placements[8]).toEqual({ x: 175, y: 542 });
     expect(placements[10]).toEqual({ x: 795, y: 542 });
     expect(placements[11]).toEqual({ x: 1105, y: 542 });
+  });
+});
+
+describe('menuGrid', () => {
+  it('reproduces the legacy nine-mission OPERATIONS grid exactly', () => {
+    const placements = menuGrid(9, 238);
+    expect(placements[0]).toEqual({ x: 230, y: 238 });
+    expect(placements[2]).toEqual({ x: 850, y: 238 });
+    expect(placements[4]).toEqual({ x: 540, y: 380 });
+    expect(placements[8]).toEqual({ x: 850, y: 522 });
+  });
+
+  it('keeps all twelve OPERATIONS missions on screen as a 4x3 grid', () => {
+    // The ops panel shares the skirmish panel's rule: a fourth 128-tall row would
+    // land under BACK at y=672, so a tenth card takes a fourth column instead.
+    const placements = menuGrid(CAMPAIGN.length, 238);
+    expect(CAMPAIGN).toHaveLength(12);
+    expect(placements).toHaveLength(12);
+    for (const place of placements) {
+      expect(place.x - 148).toBeGreaterThanOrEqual(0);
+      expect(place.x + 148).toBeLessThanOrEqual(CANVAS_WIDTH);
+      expect(place.y + 64).toBeLessThan(650);
+    }
+    expect(placements[0]).toEqual({ x: 175, y: 238 });
+    expect(placements[8]).toEqual({ x: 175, y: 522 });
+    expect(placements[11]).toEqual({ x: 1105, y: 522 });
+  });
+});
+
+describe('missionCardTag', () => {
+  it('names the mechanic on the mission that introduces it', () => {
+    expect(missionCardTag(missionById('op-spark'))).toBe('CADET  ·  THE CORE RULE');
+    expect(missionCardTag(missionById('op-nest'))).toBe('DIRECTOR  ·  EATERS');
+  });
+
+  it('falls back to the bare difficulty tier when the mission teaches nothing new', () => {
+    expect(missionCardTag(missionById('op-funnel'))).toBe('CADET');
+    expect(missionCardTag(missionById('op-seam'))).toBe('DIRECTOR');
+  });
+});
+
+describe('missionIntro', () => {
+  it('shows the brief on the banner and the coach line at mission start', () => {
+    const intro = missionIntro(missionById('op-deep'));
+    expect(intro.banner).toBe('DEEP CELLS');
+    expect(intro.line).toContain('DIAGONALS');
+    expect(intro.line.startsWith('BRIEF')).toBe(true);
+  });
+
+  it('keeps the ordinary coach line when there is no brief to introduce', () => {
+    const intro = missionIntro(missionById('op-funnel'));
+    expect(intro.banner).toBeNull();
+    expect(intro.line).toBe(missionById('op-funnel').coach);
   });
 });
 

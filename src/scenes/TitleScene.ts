@@ -8,7 +8,7 @@ import { CAMPAIGN, type Mission } from '../game/ops/campaign';
 import { browserStore, isMissionUnlocked, loadProgressOrReset, starsFor } from '../game/ops/progress';
 import { MAPS, MAP_LIST, isMapId, type MapId } from '../game/maps';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, theme } from '../game/theme';
-import { cardGrid, cellCenter, layoutBoard, mapCardText } from '../game/view/layout';
+import { cellCenter, layoutBoard, mapCardText, menuGrid, missionCardTag } from '../game/view/layout';
 import { publicAsset } from '../lib/publicAsset';
 import { addWordmark, makePanelButton } from './ui/chrome';
 
@@ -111,15 +111,20 @@ export class TitleScene extends Phaser.Scene {
 
   private drawOps(): void {
     const progress = loadProgressOrReset(browserStore());
+    // Twelve missions take a fourth column; `menuGrid` shares this rule with the
+    // skirmish panel, so the ops grid is not a second placement implementation.
+    const placements = menuGrid(CAMPAIGN.length, 238);
     CAMPAIGN.forEach((mission, index) => {
-      const col = index % 3;
-      const row = Math.floor(index / 3);
+      const place = placements[index];
+      if (place === undefined) {
+        throw new Error(`CAMPAIGN placement missing for index ${index}`);
+      }
       this.drawMissionCard(
         mission,
         isMissionUnlocked(progress, mission.id),
         starsFor(progress, mission.id),
-        230 + col * 310,
-        238 + row * 142,
+        place.x,
+        place.y,
       );
     });
     makePanelButton(this, 120, CANVAS_HEIGHT - 48, 160, 44, 'BACK', () => {
@@ -155,15 +160,8 @@ export class TitleScene extends Phaser.Scene {
       });
     });
 
-    // Nine maps fill a 3x3; the deep-field tenth needs a fourth column to stay on screen.
-    const cols = MAP_LIST.length > 9 ? 4 : 3;
-    const placements = cardGrid(MAP_LIST.length, cols, {
-      firstX: cols === 4 ? 175 : 230,
-      topY: 258,
-      pitchX: 310,
-      pitchY: 142,
-      centerX: CANVAS_WIDTH / 2,
-    });
+    // Nine maps fill a 3x3; a tenth card needs a fourth column to stay on screen.
+    const placements = menuGrid(MAP_LIST.length, 258);
     MAP_LIST.forEach((map, index) => {
       const place = placements[index];
       if (place === undefined) {
@@ -214,7 +212,7 @@ export class TitleScene extends Phaser.Scene {
     );
     this.keep(
       this.add
-        .text(x, y + 48, mission.difficulty.toUpperCase(), {
+        .text(x, y + 48, missionCardTag(mission), {
           fontFamily: theme.fonts.mono,
           fontSize: '12px',
           color: theme.colors.hudMuted,
