@@ -113,6 +113,14 @@ LOG="$LOGDIR/gate-$STAMP-$$.log"
 {
   echo "===== BlasterMaster gate ====="
   echo "mode=$MODE  repo=$REPO  head=$(git rev-parse HEAD)"
+  # A verdict names a TREE. If the tree is dirty it does not name a commit, and a
+  # LANDED record must wait for the commit that makes the gated content real
+  # (measured 2026-09-27: a green run printed head=<sha> while the tree carried an
+  # uncommitted fix).
+  DIRTY="$(git status --porcelain | wc -l)"
+  if [ "$DIRTY" -gt 0 ]; then
+    echo "WORKING TREE DIRTY ($DIRTY path(s)) — this verdict names the TREE, not commit $(git rev-parse --short HEAD)"
+  fi
   echo "started=$(date -u +%Y-%m-%dT%H:%M:%SZ)  load=$(cut -d' ' -f1-3 /proc/loadavg)"
   echo "memAvailable=$(awk '/MemAvailable/{printf "%.1fGB", $2/1048576}' /proc/meminfo)"
   FOREIGN="$(pgrep -af "vitest|vite" 2>/dev/null | grep -v "$$" || true)"

@@ -99,7 +99,7 @@ while read -r wt; do
 done <<< "$(git worktree list --porcelain | awk '/^worktree /{print $2}')"
 
 # --- retired branches named as retired must be gone --------------------------
-RETIRED="$(grep -E '^LANDED \|' "$BOARD" 2>/dev/null | grep -oE 'retired=[^|]+' | sed 's/^retired=//' | tr ',' '\n' | sed -E 's/.*branch[:= ]+([^ ]+).*/\1/' | grep -vE '^$|branch' || true)"
+RETIRED="$(grep -E '^LANDED \|' "$BOARD" 2>/dev/null | grep -oE 'retired=[^|]*' | grep -oE 'branch=[^ ,]+' | sed 's/^branch=//' || true)"
 while read -r br; do
   [ -n "$br" ] || continue
   if git show-ref --verify --quiet "refs/heads/$br"; then
