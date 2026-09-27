@@ -283,6 +283,23 @@ QUEUE | row=12 | THE EATER AGENT — OWNER'S IDEA, design stage, NOTHING DISPATC
   STAGING: slice 1 = row=13 two-hit plates. slice 2 = explicit neutral owner + one eater + reveal +
   absorb + grow + neutral spread + the wipe-rule fix + hash/outcome/pins + one map. slice 3 = the
   whole-board tie, multiple eaters and the "it eats HERE next" prediction ghost.
+  RULES SETTLED BY THE OWNER 2026-09-27 (owner's earlier words: "This introduces the possibility
+  of a tie, if an eater explosion covers the whole board."):
+  (i) THE TIE — after the eater's detonation and its neutral cascade SETTLE, if NO cell is owned by
+  either player, the game is a DRAW. Reuses `Outcome.draw`; it must be checked after the eater
+  phase, and it is also the safety valve that stops an all-neutral board from locking up.
+  (ii) NEUTRAL PILES ARE **INERT** — a cell neutralised by the eater is NOT a legal placement
+  target until it is empty. This REVERSES the dispatcher's recommendation (harvest with one tempo)
+  and it is recorded as the owner's choice, not as a default. It costs ZERO code: `legalMoves`
+  already tests `owner === null || owner === player`, so a neutral owner is excluded by
+  construction. CONSEQUENCES the owner should see: the flood becomes a barrier rather than a
+  bounty; a neutral pile BELOW its threshold never clears by itself, so a partial flood PERMANENTLY
+  shrinks the playable board (dead zones), and the only ways out are a cascade that reaches the
+  pile or the all-neutral tie. The eater's own cell is neutral, so it cannot be fed directly — you
+  influence it only by building beside it, which is the bait.
+  (iii) MULTIPLE EATERS activate in REVEAL ORDER, so the reveal order is state and must enter
+  `hashBoard` (the dispatcher's alternative, clockwise-from-north order derived from the board,
+  was rejected in favour of the player-intuitive one).
 
 QUEUE | row=4 | DEEP FIELD ships in SKIRMISH only. A campaign mission for it needs a tenth
   mission and the ops grid has the same 3x3 capacity limit. Reserved, NOT ordered.
