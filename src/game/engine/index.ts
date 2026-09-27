@@ -5,29 +5,42 @@ export {
   boardWalls,
   collapseWalls,
   createBoard,
+  criticalCells,
+  criticalExplosions,
+  deepBlastTargets,
+  deepDegree,
+  detonate,
   diagNeighborIds,
+  eaterAt,
   getCell,
   hashBoard,
   isArmoredPlate,
   isCrackedPlate,
   isCritical,
+  isEaterCell,
+  isHousingPlate,
   isNearCritical,
   legalMoves,
   mapBounds,
   nearCriticalCount,
   occupiedCount,
   orthoNeighborIds,
+  revealEaters,
   seedBoard,
   threshold,
   tokenCount,
 } from './board';
+export { stepCascade } from './cascade';
 export { createGame, applyTurn } from './game';
 export { cellId, opponentOf, parseCellId } from './ids';
 export { applyMove } from './move';
+export type { CascadeStep } from './cascade';
 export type {
   Board,
   CellId,
   CellState,
+  EaterState,
+  EaterStep,
   Game,
   HasPlaced,
   IllegalMoveReason,
@@ -37,6 +50,7 @@ export type {
   MoveResult,
   MoveSuccess,
   Outcome,
+  Owner,
   PlayerId,
   TokenSeed,
   TokenTransfer,
@@ -45,4 +59,4 @@ export type {
   WaveStep,
   WinCause,
 } from './types';
-export type { WallDamage } from './board';
+export type { Explosion, WallDamage } from './board';

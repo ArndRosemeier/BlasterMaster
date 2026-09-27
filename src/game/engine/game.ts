@@ -27,6 +27,7 @@ export function applyTurn(game: Game, target: CellId): TurnResult {
     ok: true,
     afterPlacement: result.afterPlacement,
     waves: result.waves,
+    eaters: result.eaters,
     game: {
       mapId: game.mapId,
       board: result.final,

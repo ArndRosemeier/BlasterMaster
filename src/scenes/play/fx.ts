@@ -1,31 +1,45 @@
 import Phaser from 'phaser';
-import type { PlayerId } from '../../game/engine/types';
-import { playerTheme } from '../../game/theme';
+import type { Owner } from '../../game/engine/types';
+import { NEUTRAL_LOOK, ownerLook } from '../../game/theme';
 
 export const FX_TEX = {
   coreA: 'fx-core-a',
   coreB: 'fx-core-b',
+  coreNeutral: 'fx-core-neutral',
   glowA: 'fx-glow-a',
   glowB: 'fx-glow-b',
+  glowNeutral: 'fx-glow-neutral',
   spark: 'fx-spark',
 } as const;
 
-export function coreTexture(player: PlayerId): string {
-  return player === 'a' ? FX_TEX.coreA : FX_TEX.coreB;
+/** One home for "which texture does this owner wear": core and glow only differ in key set. */
+function ownerTexture(owner: Owner, forA: string, forB: string, forNeutral: string): string {
+  if (owner === 'neutral') {
+    return forNeutral;
+  }
+  return owner === 'a' ? forA : forB;
 }
 
-export function glowTexture(player: PlayerId): string {
-  return player === 'a' ? FX_TEX.glowA : FX_TEX.glowB;
+export function coreTexture(owner: Owner): string {
+  return ownerTexture(owner, FX_TEX.coreA, FX_TEX.coreB, FX_TEX.coreNeutral);
+}
+
+export function glowTexture(owner: Owner): string {
+  return ownerTexture(owner, FX_TEX.glowA, FX_TEX.glowB, FX_TEX.glowNeutral);
 }
 
 export function ensureFxTextures(scene: Phaser.Scene): void {
   if (scene.textures.exists(FX_TEX.coreA)) {
     return;
   }
-  paintCore(scene, FX_TEX.coreA, 0xf0a030, 0xffe29a);
-  paintCore(scene, FX_TEX.coreB, 0x30d0e0, 0xb8ffff);
+  paintCore(scene, FX_TEX.coreA, 0xf0a030, 0xffe29a, false);
+  paintCore(scene, FX_TEX.coreB, 0x30d0e0, 0xb8ffff, false);
+  // A neutral pile is a GROUND slab, not an orb: nobody's colour and a shape the
+  // two seats never use, so it reads apart from both players and from empty.
+  paintCore(scene, FX_TEX.coreNeutral, NEUTRAL_LOOK.fill, NEUTRAL_LOOK.glow, true);
   paintGlow(scene, FX_TEX.glowA, 0xffc56a);
   paintGlow(scene, FX_TEX.glowB, 0x7af0ff);
+  paintGlow(scene, FX_TEX.glowNeutral, NEUTRAL_LOOK.glow);
   paintSpark(scene, FX_TEX.spark);
 }
 
@@ -132,13 +146,13 @@ export function flyToken(
   scene: Phaser.Scene,
   from: { x: number; y: number },
   to: { x: number; y: number },
-  player: PlayerId,
+  owner: Owner,
   duration: number,
 ): Promise<void> {
   ensureFxTextures(scene);
-  const look = playerTheme(player);
-  const body = scene.add.image(from.x, from.y, coreTexture(player));
-  const glow = scene.add.image(from.x, from.y, glowTexture(player));
+  const look = ownerLook(owner);
+  const body = scene.add.image(from.x, from.y, coreTexture(owner));
+  const glow = scene.add.image(from.x, from.y, glowTexture(owner));
   body.setDisplaySize(22, 22).setDepth(9);
   glow.setDisplaySize(40, 40).setDepth(8);
   glow.setBlendMode(Phaser.BlendModes.ADD);
@@ -148,7 +162,7 @@ export function flyToken(
     delay: 26,
     repeat: Math.max(0, Math.floor(duration / 26) - 1),
     callback: () => {
-      const ghost = scene.add.image(body.x, body.y, coreTexture(player));
+      const ghost = scene.add.image(body.x, body.y, coreTexture(owner));
       ghost.setDisplaySize(13, 13);
       ghost.setTint(look.glow);
       ghost.setAlpha(0.38);
@@ -184,8 +198,19 @@ export function flyToken(
   });
 }
 
-function paintCore(scene: Phaser.Scene, key: string, fill: number, shine: number): void {
+function paintCore(scene: Phaser.Scene, key: string, fill: number, shine: number, slab: boolean): void {
   const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  if (slab) {
+    g.fillStyle(fill, 0.28);
+    g.fillRect(8, 8, 48, 48);
+    g.fillStyle(fill, 0.8);
+    g.fillRect(14, 14, 36, 36);
+    g.fillStyle(shine, 0.5);
+    g.fillRect(20, 20, 10, 10);
+    g.generateTexture(key, 64, 64);
+    g.destroy();
+    return;
+  }
   g.fillStyle(fill, 0.22);
   g.fillCircle(32, 32, 28);
   g.fillStyle(fill, 0.55);

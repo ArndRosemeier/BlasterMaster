@@ -6,6 +6,7 @@ import {
   boardCells,
   collapseWalls,
   createBoard,
+  deepDegree,
   getCell,
   hashBoard,
   isNearCritical,
@@ -19,7 +20,7 @@ import {
 import { applyTurn, createGame } from './game';
 import { cellId } from './ids';
 import { applyMove } from './move';
-import type { Board, HasPlaced, MapDefinition, MoveResult, MoveSuccess, PlayerId, TurnResult, TurnSuccess } from './types';
+import type { Board, HasPlaced, MapDefinition, MoveResult, MoveSuccess, Owner, TurnResult, TurnSuccess } from './types';
 
 const NEVER_PLACED: HasPlaced = { a: false, b: false };
 const BOTH_PLACED: HasPlaced = { a: true, b: true };
@@ -33,7 +34,7 @@ const SQUARE = map('square', ['##', '##']);
 const RECT_2X3 = map('rect2x3', ['###', '###']);
 const CYCLE_ARENA = map('cycle-arena', ['##.##', '##.##']);
 
-function ownerOf(board: Board, x: number, y: number): PlayerId | null {
+function ownerOf(board: Board, x: number, y: number): Owner | null {
   return getCell(board, cellId(x, y)).owner;
 }
 
@@ -587,8 +588,11 @@ describe('deep cells', () => {
 
     const corner = getCell(board, cellId(0, 0));
     expect(corner.deep).toBe(false);
-    expect(corner.diagonals).toEqual([]);
+    // A plain cell HAS diagonal neighbours, it just does not use them: the data is
+    // there for every cell, and `threshold`/`blastTargets` are what gate on `deep`.
+    expect(corner.diagonals).toEqual([cellId(1, 1)]);
     expect(threshold(corner)).toBe(2);
+    expect(deepDegree(corner)).toBe(3);
 
     const field = createBoard(DEEP_FIELD);
     expect(threshold(getCell(field, cellId(0, 0)))).toBe(3);

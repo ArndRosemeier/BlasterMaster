@@ -1,74 +1,16 @@
-import {
-  blastTargets,
-  collapseWalls,
-  getCell,
-  hashBoard,
-  isCritical,
-  occupiedCount,
-  replaceCell,
-  threshold,
-} from './board';
+import { hashBoard, occupiedCount, replaceCell } from './board';
+import { stepCascade } from './cascade';
 import { opponentOf } from './ids';
 import type {
   Board,
   CellId,
-  CellState,
+  EaterStep,
   HasPlaced,
   MoveResult,
   Outcome,
   PlayerId,
-  TokenTransfer,
   WaveStep,
 } from './types';
-
-function criticalCells(board: Board): CellId[] {
-  const ready: CellId[] = [];
-  for (const cell of Object.values(board.cells)) {
-    if (isCritical(cell)) {
-      ready.push(cell.id);
-    }
-  }
-  return ready.sort();
-}
-
-function applyWave(
-  board: Board,
-  player: PlayerId,
-  exploded: readonly CellId[],
-): { readonly board: Board; readonly transfers: readonly TokenTransfer[] } {
-  const cells: Record<CellId, CellState> = { ...board.cells };
-  const transfers: TokenTransfer[] = [];
-
-  for (const id of exploded) {
-    const cell = getCell({ ...board, cells }, id);
-    const leftover = cell.count - threshold(cell);
-    if (leftover < 0) {
-      throw new Error(`Cell ${id} exploded below zero`);
-    }
-    cells[id] = {
-      ...cell,
-      count: leftover,
-      owner: leftover === 0 ? null : cell.owner,
-    };
-    for (const to of blastTargets(cell)) {
-      transfers.push({ from: id, to });
-    }
-  }
-
-  for (const transfer of transfers) {
-    const target = getCell({ ...board, cells }, transfer.to);
-    cells[transfer.to] = {
-      ...target,
-      count: target.count + 1,
-      owner: player,
-    };
-  }
-
-  return {
-    board: { ...board, cells },
-    transfers,
-  };
-}
 
 function cycleOutcome(board: Board): Outcome {
   const aCount = occupiedCount(board, 'a');
@@ -105,57 +47,41 @@ export function applyMove(
   const afterPlacement = current;
   const seen = new Set<string>([hashBoard(current)]);
   const waves: WaveStep[] = [];
+  const eaters: EaterStep[] = [];
+  const opponent = opponentOf(player);
+  const finish = (outcome: Outcome): MoveResult => ({
+    ok: true,
+    afterPlacement,
+    waves,
+    eaters,
+    final: current,
+    hasPlaced: nextHasPlaced,
+    outcome,
+  });
 
   for (;;) {
-    const exploded = criticalCells(current);
-    if (exploded.length === 0) {
-      return {
-        ok: true,
-        afterPlacement,
-        waves,
-        final: current,
-        hasPlaced: nextHasPlaced,
-        outcome: { type: 'ongoing' },
-      };
+    const step = stepCascade(current, player, player, seen);
+    if (step.kind === 'stable') {
+      return finish({ type: 'ongoing' });
     }
 
-    const dump = applyWave(current, player, exploded);
-    const grown = collapseWalls(dump.board, exploded);
-    current = grown.board;
-    waves.push({
-      board: current,
-      exploded,
-      transfers: dump.transfers,
-      collapsed: grown.collapsed,
-      cracked: grown.cracked,
-    });
+    waves.push(step.wave);
+    current = step.board;
 
-    const opponent = opponentOf(player);
-    if (occupiedCount(current, opponent) === 0 && nextHasPlaced[opponent]) {
-      return {
-        ok: true,
-        afterPlacement,
-        waves,
-        final: current,
-        hasPlaced: nextHasPlaced,
-        outcome: { type: 'win', player, cause: 'wipe' },
-      };
+    // A WIPE IS THE MOVER'S OWN CASCADE, and only a wave the mover's colour
+    // carried can award it: a NEUTRAL flood that empties the opponent's squares
+    // never wins the game for anyone (the squares were not captured), so those
+    // waves are skipped. The eater phase that follows is not checked at all.
+    if (
+      step.wave.spreader !== 'neutral' &&
+      occupiedCount(current, opponent) === 0 &&
+      nextHasPlaced[opponent]
+    ) {
+      return finish({ type: 'win', player, cause: 'wipe' });
     }
 
-    const signature = hashBoard(current);
-    if (seen.has(signature)) {
-      const outcome: Outcome = nextHasPlaced[opponent]
-        ? cycleOutcome(current)
-        : { type: 'ongoing' };
-      return {
-        ok: true,
-        afterPlacement,
-        waves,
-        final: current,
-        hasPlaced: nextHasPlaced,
-        outcome,
-      };
+    if (step.repeated) {
+      return finish(nextHasPlaced[opponent] ? cycleOutcome(current) : { type: 'ongoing' });
     }
-    seen.add(signature);
   }
 }
