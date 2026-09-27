@@ -290,6 +290,10 @@ GUARD | geometry-has-one-home | `eslint.config.js` errors on `.neighbors`/`.diag
   injection: `.neighbors` into any other src file → lint exit 1; `.deep` in a non-ai view file →
   clean (it is a display flag the view may read); `.deep` in `ai/*.test.ts` → error. Known limit:
   hardcoded rule NUMBERS are not caught (see the TRAP on the syntactic guard).
+GUARD | gate-diagnostic-honesty | the foreign-suite line matches only `node.*(vitest|vite)`, because
+  the looser `vitest|vite` pattern matched the gate's OWN caller — a `bash -c` whose commit message
+  mentioned `vite.config.ts` — and reported it as a foreign suite (measured 2026-09-27). It is a
+  diagnostic and never reaped anything, but a diagnostic that cries wolf trains people to skip it.
 GUARD | gate-lock | `scripts/gate.sh` takes an ATOMIC mkdir lock at
   `<repo>/.blastermaster-lock`, derived from the git COMMON dir so the main tree and every
   worktree resolve the same path. Verify: run it twice — the second prints `LOCK HELD` and

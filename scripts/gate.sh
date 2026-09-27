@@ -123,7 +123,10 @@ LOG="$LOGDIR/gate-$STAMP-$$.log"
   fi
   echo "started=$(date -u +%Y-%m-%dT%H:%M:%SZ)  load=$(cut -d' ' -f1-3 /proc/loadavg)"
   echo "memAvailable=$(awk '/MemAvailable/{printf "%.1fGB", $2/1048576}' /proc/meminfo)"
-  FOREIGN="$(pgrep -af "vitest|vite" 2>/dev/null | grep -v "$$" || true)"
+  # `node.*(vitest|vite)` and not a bare `vitest|vite`: the loose pattern matched this gate's
+  # OWN caller — a `bash -c` whose commit message mentioned vite.config.ts — and printed it as a
+  # foreign suite (measured 2026-09-27). Only the node processes are real suites.
+  FOREIGN="$(pgrep -af "node.*(vitest|vite)" 2>/dev/null || true)"
   echo "foreign suite processes (diagnostic; never reaped): ${FOREIGN:-none}"
 } | tee -a "$LOG"
 
