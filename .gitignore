@@ -9,6 +9,8 @@ dist-ssr/
 !.env.example
 coverage/
 *.log
+.gate-logs/
+worktrees/
 .deploy/
 .vite/
 .idea/

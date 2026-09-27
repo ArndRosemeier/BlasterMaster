@@ -11,6 +11,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "gate": "bash scripts/gate.sh",
+    "gate:compile": "GATE_TESTS=0 bash scripts/gate.sh",
+    "board": "bash scripts/board.sh",
     "format": "eslint . --fix",
     "deploy:sync": "powershell -NoProfile -File ./deploy-sync.ps1"
   },
