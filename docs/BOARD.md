@@ -36,7 +36,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: 676caa41a95b88a74e3f31a87593db2b3423e5d3 · 2026-09-27T18:1xZ
+reconciled: 310cdbc9d75748d12d77eea6ac66b841fc3e7c3b · 2026-09-27T18:23Z
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -123,22 +123,41 @@ LANDED | row=14 | sha=ea3018d (2a `4463842` + 2b `ea3018d`, rebased onto `df51c9
   resolves `spreader` to neutral so no wipe is awarded there — a deliberate fail-safe; per-token
   colours stay exact.
 
-IN-FLIGHT | row=18 | writer=session-1e80f305-ac1f-4f5a-ab39-126ec9dbdef6
-  | worktree=/home/administrator/projects/BlasterMaster/worktrees/every-wall | branch=feat/every-wall
-  | base=676caa4 | dispatched_by=session-1e324382
-  | state=dispatched 2026-09-27T18:1xZ, deps installed, no commit yet
-  | note=BUILDS SPEC row=17 (every wall hides an eater). Scope: every PLATE THAT FALLS reveals an
-  eater on the square it fell to, mastered by the mover, in reveal order — a cracked `+` has not
-  fallen and reveals nothing; the `@` glyph, `MapDefinition.housing`, `Board.housing` and the reveal
-  gate are DELETED (there is no per-map fact left to advertise, which is what fixes the
-  discoverability defect at its root); NEST's two `@` become `+` so its two-hit timing survives;
-  the wall missions' text is corrected in the SAME landing because AIRLOCK's coach literally
-  promised "THE PLATE FALLS EMPTY"; pinning that a cascade dropping several plates reveals several
-  eaters, in fall order, and that the phase still terminates (BULKHEAD and THE SEAM carry five
-  plates each); and signposting becomes a RULE (map card + mission text + an optional plate cue).
-  Star thresholds are deliberately NOT touched: their recalibration is row=8's measurement, not a
-  number to guess at. The writer is warned about the `git checkout HEAD --` trap (TRAP above), since
-  the slice is uncommitted while it injects.
+LANDED | row=18 | sha=310cdbc | verify=DISPATCHER'S OWN: (1) my own `npm run gate` on the rebased
+  tree and on the merged main tip → exit 0 FULL GREEN, typecheck 0 · lint 0 · **121 tests / 16
+  files** · build 0 (logs …T182313Z-4019540.log, …T182359Z-4021352.log); (2) MY injection on the
+  multi-plate path — revealing only the FIRST fallen plate per cascade — reds exactly the two
+  multi-plate pins ("drops FIVE plates in one cascade and runs all five eaters in fall order",
+  "reveals two plates in the order they fall"), restored byte-identical from an OUT-OF-TREE copy
+  (the TRAP's rule, followed); (3) MY integration probe, which the writer did not run — 40 random
+  games on EACH wall map (AIRLOCK 1 plate, BOLTS 2, BULKHEAD 5, NEST 2, SEAM 5): every game
+  terminates, a stuck player never arises (the stalemate rule holds in real play), tokens are
+  conserved exactly (`+1` per move — eaters move tokens, never create or destroy), and live eaters
+  never exceed the map's plate count. Eater observations per 40 games: AIRLOCK 173 · BOLTS 376 ·
+  BULKHEAD 2014 · NEST 441 · SEAM 2058 — on five-plate maps an eater is now a CONSTANT presence,
+  which is the "plannable, not luck" rule working as intended.
+  | retired=worktree /home/administrator/projects/BlasterMaster/worktrees/every-wall · branch
+  feat/every-wall (`-d`, merged; only the main tree remains) · writer session 1e80f305 finished ·
+  host audit after: suites=none browsers=none, lock free
+  | note=WHAT LANDED: every plate that FALLS reveals an eater on the square it fell to, mastered by
+  the mover, activating in reveal order; a CRACKED `+` reveals nothing, so crack-then-shatter stays
+  a real choice. The `@` glyph, `MapDefinition.housing`, `Board.housing` and the reveal gate are
+  DELETED — the housing distinction is gone rather than decorated, so there is no per-map fact left
+  to fail to advertise. NEST's two `@` are now `+` (two-hit timing preserved by durability). The
+  wall missions' text was corrected in the same landing (AIRLOCK's coach promised "THE PLATE FALLS
+  EMPTY"), and the card rule line lives ONCE, in `mapCardText` — which FOLDED a copy out of
+  TitleScene. `swiftMoves`, `cascadeWaves`, `mapId` and `difficulty` were deliberately NOT touched.
+  THE DISPATCHER'S BRIEF WAS WRONG twice, both proven by the writer BEFORE implementing: (i) my
+  "all existing behaviour NOT about housings stays byte-identical" is FALSE — an every-fall reveal
+  necessarily changes non-housing pins, because a fallen square is an eater's neutral body and its
+  hoard is neutral, so five pins and one soak invariant were RESTATED (never weakened) and the
+  counts moved 115/15 → 121/16; (ii) "the five-ish fixtures that carry `housing: []`" — none did;
+  the field was optional and only `mapFromRows` filled it.
+  DELIBERATELY LEFT: no plate cue on the board itself (its colour has to survive owner/hover/crack/
+  near-critical and cannot be checked without a browser), so the signposting is the map card's rule
+  line plus the mission text; the card's name/counts moved 8-10 px to fit an 11 px rule line and
+  that layout is UNVERIFIED by eye — the owner's look, and it is published.
+
 
 LANDED | row=1 | sha=ab2b552 | verify=DISPATCHER'S OWN full loop on exactly this tree:
   typecheck exit 0 · lint exit 0 · 65 tests / 12 files · build exit 0. `scripts/gate.sh` exists
@@ -277,6 +296,10 @@ QUEUE | row=8 | RE-CHECK THE CAMPAIGN STAR THRESHOLDS after the row=3 AI judgeme
   moves-to-win and cascade counts, and compare with the thresholds before changing any number.
   Reserved; NOT ordered. It is the honest cost of letting the owner's rule changes flow into the
   AI automatically — the AI got the new rule for free, and its calibration debt came with it.
+  UPDATED 2026-09-27 (row=17/18): the debt GREW — every fallen plate now frees an eater, so
+  AIRLOCK, BOLTS and THE SEAM change character and their star gates are even less likely to be
+  right, while their numbers were deliberately left alone. Measure before touching them.
+
 
 LANDED | row=11 | sha=7cde352 | verify=DISPATCHER'S OWN, by CONTENT and not by exit
   code: the published app now serves `assets/index-B9fTQCbK.js`, `last-modified` today, and that
@@ -430,6 +453,7 @@ SPEC | row=17 | EVERY WALL HIDES AN EATER — OWNER'S RULING, and it SUPERSEDES 
   breaking it releases an eater (map card, mission text, and a cue on the plate itself).
   This SUPERSEDES the discoverability queue line it replaces (housing-vs-armoured visuals): with
   every wall alike, there is no per-map fact to advertise — only the rule.
+  LANDED as row=18 · sha=310cdbc.
 
 CLOSED | row=15 | TEACH THE AI ABOUT EATERS — the owner decided AGAINST it, verbatim: "I think its
   too complicated to do this right, so... let the AI ignore it and stay stable." The AI stays
@@ -599,16 +623,16 @@ GUARD | worktrees-cannot-pollute-the-main-gate | writers work in `worktrees/<sli
   dispatcher's gate. VERIFIED BY INJECTION 2026-09-27 (row=2): a poisoned probe tree went RED
   at 66 tests while the main tree stayed GREEN at exactly 65.
 
-RECOVERY | A successor starts here: (1) `npm install` (deps are gitignored), (2) `npm run board` (it
-  reconciles this file and audits the live suite/browser processes and the lock), (3) read
-  `docs/DECISIONS.md`, (4) `npm run gate` BEFORE any change, (5) `npm run publish` to make a build
-  LIVE — `git push` does not publish. Landings, oldest first: `ab2b552` deep cells · `b475fd1` the
-  process · `5ec65c3` duplication folds · `29f78f6` AI rule-derivation · `b20f5a6` the tripwire ·
-  `871875a` armored plates · `ea3018d` the eater · `b102c38` the stalemate rule + the AI-stays-blind
-  decision. Outstanding owner forks: row=4 (a DEEP FIELD campaign mission). Queued work: row=8 (the
-  AI's calibration debt), row=9 (a small TitleScene fold). CLOSED by owner decision: row=15 (the AI
-  stays blind to eaters). No writer worktrees, no writer sessions, one goal — the chief-of-staff
-  goal, paused.
+RECOVERY | A successor starts here: (1) `npm install`, (2) `npm run board` (reconciles this file
+  and audits live suite/browser processes and the lock), (3) read `docs/DECISIONS.md`, (4) `npm run
+  gate` BEFORE any change, (5) `npm run publish` to make a build LIVE — `git push` does not publish.
+  Landings, oldest first: `ab2b552` deep cells · `b475fd1` the process · `5ec65c3` duplication folds ·
+  `29f78f6` AI rule-derivation · `b20f5a6` the tripwire · `871875a` armored plates · `ea3018d` the
+  eater · `b102c38` the stalemate rule + the AI-stays-blind decision · `310cdbc` every fallen plate
+  reveals an eater (the `@` housing distinction deleted). Outstanding owner forks: row=4 (a DEEP
+  FIELD campaign mission). Queued work: row=8 (the AI's calibration debt, GROWN by row=18), row=9 (a
+  small TitleScene fold). CLOSED by owner decision: row=15 (the AI stays blind to eaters). No writer
+  worktrees, no writer sessions, one goal — the chief-of-staff goal, paused.
 ```
 
 ## The gate
