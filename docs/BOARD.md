@@ -36,7 +36,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: a0bdd42e83d6eb3a543aa38bcdad4ef2ce2f78b9 · 2026-09-27T19:27Z
+reconciled: 7c1c475cf5b343b69e2aad918fdc7877f6b3ee6c · 2026-09-27T19:4xZ
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -193,6 +193,25 @@ LANDED | row=19 | sha=a0bdd42 | verify=DISPATCHER'S OWN: my own `npm run gate` o
   glide feels like a step rather than a teleport. The pure maths and the engine-output ordering are
   verified; the LOOK is the owner's, and it is PUBLISHED for him.
 
+
+IN-FLIGHT | row=20 | writer=session-6da12a2c-ed32-4204-9902-f0a72868317b
+  | worktree=/home/administrator/projects/BlasterMaster/worktrees/ops-campaign
+  | branch=feat/ops-campaign | base=7c1c475 | dispatched_by=session-1e324382
+  | state=dispatched 2026-09-27T19:4xZ, deps installed, no commit yet
+  | note=OWNER'S ORDER, verbatim: "ok, works. Now we need all these maps in operations and a quick
+  brief for new mechanics when they are introduces, starting with the first mission."
+  WHAT THE DISPATCHER MEASURED FIRST: of twelve maps exactly THREE have no mission — `deep` (DEEP
+  FIELD), `bulkhead` (BULKHEAD), `nest` (NEST) — and the ops grid is a hardcoded 3-column layout
+  whose fourth row would land at y≈664, off the 720 canvas and under the BACK button, so twelve
+  cards need the SAME tested `cardGrid` the skirmish panel already uses (>9 → four columns). The
+  slice therefore: appends three missions as 10-12 (deep geometry → plate durability → a new actor
+  is the intended ramp) with PLACEHOLDER `swiftMoves`/`cascadeWaves` explicitly marked unproven (the
+  measurement is row=8); adds a short mechanic BRIEF set only on the mission that FIRST introduces a
+  mechanic — `op-spark` for the core rules (the owner's "starting with the first mission"),
+  `op-airlock` for plates, `op-deep` for deep cells, `op-armor` for armoured plates, `op-nest` for
+  eaters — surfaced at mission start in PlayScene and as a card tag; and makes the owner's ask
+  UNFALSIFIABLE with a pin that every map in `MAP_LIST` has a mission, plus a pin that each mechanic
+  is briefed exactly once.
 
 LANDED | row=1 | sha=ab2b552 | verify=DISPATCHER'S OWN full loop on exactly this tree:
   typecheck exit 0 · lint exit 0 · 65 tests / 12 files · build exit 0. `scripts/gate.sh` exists
