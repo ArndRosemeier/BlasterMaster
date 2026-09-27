@@ -36,7 +36,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: 310cdbc9d75748d12d77eea6ac66b841fc3e7c3b · 2026-09-27T18:23Z
+reconciled: a583cae37afe33b8bd526c5f73562e1e1f8be924 · 2026-09-27T18:3xZ
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -158,6 +158,32 @@ LANDED | row=18 | sha=310cdbc | verify=DISPATCHER'S OWN: (1) my own `npm run gat
   line plus the mission text; the card's name/counts moved 8-10 px to fit an 11 px rule line and
   that layout is UNVERIFIED by eye — the owner's look, and it is published.
 
+
+IN-FLIGHT | row=19 | writer=session-9e66e5c2-c677-49c2-b7bb-b64b960b56c1
+  | worktree=/home/administrator/projects/BlasterMaster/worktrees/eater-juice | branch=feat/eater-juice
+  | base=a583cae | dispatched_by=session-1e324382
+  | state=dispatched 2026-09-27T18:3xZ, deps installed, no commit yet
+  | note=EATER PRESENTATION, the owner's three bullets. BULLET 1 ("eaters only move if there is
+  something to eat next to them, not diagonally") WAS ALREADY THE ENGINE'S BEHAVIOUR and is NOT
+  work: `nextMeal` iterates `orthoNeighborIds` only, skips squares another eater occupies, and
+  selects nothing unless a neighbour holds `count > 0` (so it stays put); the pins "stays put when
+  nothing beside it has tokens" and "never treats another eater as a meal" already hold. The
+  dispatcher verified this BEFORE dispatching so the owner is not billed for a no-op, and told the
+  writer to report BLOCKED rather than change the engine.
+  THE SLICE is the other two: (a) SMOOTH MOVEMENT — the view keys its visual by square, so a move
+  is currently a teleport; the glide must be a straight axis-aligned line (an arc would suggest
+  diagonal travel, which is exactly the rule the motion must not contradict) and `PlayScene` must
+  AWAIT it so steps never overlap; (b) NO TEXT — `EaterVisual.count` is a `Text` today and must go,
+  replaced by spheres inside the body plus a pulse whose rate/intensity scales with
+  `hoard / deepDegree(cell)` — the ENGINE'S helper, never a hardcoded 3 or 8 — so a corner eater
+  (threshold 3) reads "about to blow" when an interior one does not; and (c) A REVEAL BEFORE THE
+  FIRST MOVE — a newly revealed eater must emerge from the broken square rather than appear, using
+  the wave's `collapsed` and the activation step's `from`.
+  THE MATHS GOES IN A PURE, TESTED HELPER (`src/game/view/`, the `reachPips`/`orbOffsets` pattern):
+  there is NO browser in this environment, so anything not expressible as pure maths is unverifiable
+  by anyone until the owner looks — the helper is what makes this slice checkable at all.
+  FPS budget: five eaters can coexist (a five-plate map; my soak saw ~2000 live-eater observations
+  per 40 games on THE SEAM), so no per-frame allocation per sphere.
 
 LANDED | row=1 | sha=ab2b552 | verify=DISPATCHER'S OWN full loop on exactly this tree:
   typecheck exit 0 · lint exit 0 · 65 tests / 12 files · build exit 0. `scripts/gate.sh` exists
