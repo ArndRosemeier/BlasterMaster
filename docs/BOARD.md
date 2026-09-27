@@ -261,11 +261,22 @@ QUEUE | row=12 | THE EATER AGENT — OWNER'S IDEA, design stage, NOTHING DISPATC
   (5) the tie condition needs a precise definition ("covers the whole board" = every cell neutral?).
   OWNER'S ANSWERS (2026-09-27): (1) APPETITE — "It should explode identically to deep cell rules.
   So if it has 3 tokens and moved to a corner it explodes. Or at 8 tokens in the middle." So the
-  eater detonates when its hoard reaches `threshold(cell)` AT ITS CURRENT POSITION (the deep rule,
-  unchanged), keeps the leftover, and therefore ceases to exist when the leftover is 0 — it can
-  survive its own blast only by overeating relative to where it stands (e.g. 5 in an 8-threshold
-  cell that then steps onto a 3-threshold corner leaves 2). (2) ACTIVATION — immediately on reveal,
-  then once per round after the REVEALER, which means the game state must record who revealed it.
+  eater detonates the moment its hoard reaches `threshold(cell)` AT ITS CURRENT POSITION (the deep
+  rule, unchanged) — checked after each activation's move-and-eat, so it can cross the line by
+  overeating in a single bite (2 in an 8-threshold cell that eats a 6-stack is at 8). (2) ONE-SHOT,
+  owner's correction verbatim: "Oh an eater should be gone after it explodes, i thought that was
+  clear but i did not state it yet." The eater is REMOVED by its own detonation — one detonation
+  per eater, ever. THE DISPATCHER INFERRED OTHERWISE (survival with the leftover, "it can survive
+  its own blast by overeating"); that inference is wrong and was stated to the owner before it was
+  corrected, and is recorded here so the wrong version cannot be briefed from.
+  CONSEQUENCE, and the one open sub-fork: the detonation subtracts `threshold` and sends one token
+  per target, so a hoard above the threshold leaves a LEFTOVER. Recommended reading (flagged to
+  the owner, reversible): the leftover stays in that cell as NEUTRAL tokens — conservation then
+  holds unchanged, and the eater's death leaves a harvestable pile. The alternative is destroying
+  it, which removes tokens from the board (bounded at one detonation per eater, so termination
+  still holds) but breaks the "total tokens == placements" invariant for good.
+  (3) ACTIVATION — immediately on reveal, then once per round after the REVEALER, which means the
+  game state must record who revealed it.
   (3) COMBINE with two-hit plates: a housing that takes two detonations to crack, so releasing an
   eater costs real tempo. That prerequisite is its own slice (row=13, IN FLIGHT above); the eater
   is briefed off its landing.
