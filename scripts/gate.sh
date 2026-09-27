@@ -78,20 +78,27 @@ lock_sweepable() {
   [ "$(lock_age)" -gt 1800 ] && ! suite_alive
 }
 
-if ! mkdir "$LOCK" 2>/dev/null; then
+if mkdir "$LOCK" 2>/dev/null; then
+  : # ours
+else
   OWNER="$(lock_owner)"
   AGE="$(lock_age)"
   if lock_sweepable; then
     echo "SWEEPING STALE LOCK at $LOCK (age=${AGE}s, owner=$OWNER, no suite alive)" >&2
     rm -rf "$LOCK"
+    # The ONLY retry, and it is INSIDE the sweep branch. A retry placed at the end
+    # of the block runs after a SUCCESSFUL first mkdir, fails on our own lock, and
+    # reports a phantom race — that mistake shipped twice on 2026-09-27 and both
+    # runs were VOID (exit 9); the second one because the fix's own comment claimed
+    # the retry was conditional while the code was not.
+    if ! mkdir "$LOCK" 2>/dev/null; then
+      echo "LOCK RACE: another actor took $LOCK during the sweep — retry (exit 9)" >&2
+      exit 9
+    fi
   else
     echo "LOCK HELD by $OWNER (${AGE}s) — this run is VOID, retry after it settles (exit 9)" >&2
     exit 9
   fi
-fi
-if ! mkdir "$LOCK" 2>/dev/null; then
-  echo "LOCK RACE: another actor took $LOCK during the sweep — retry (exit 9)" >&2
-  exit 9
 fi
 echo "gate mode=$MODE pid=$$ started=$(date -u +%Y-%m-%dT%H:%M:%SZ) cwd=$PWD" > "$LOCK/owner"
 # shellcheck disable=SC2064
