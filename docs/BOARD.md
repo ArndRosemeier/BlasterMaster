@@ -34,7 +34,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: 4541501b85d1f9f398436aed7537df898131d3c1 · 2026-09-27T15:30Z
+reconciled: b20f5a6724c274f9fb54423aa6ff5ef01a1e4809 · 2026-09-27T15:39Z
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -127,24 +127,46 @@ LANDED | row=6 | sha=5ec65c3 | verify=DISPATCHER'S OWN: `npm run gate` exit 0 FU
   cuts.length`, so a future rule change cannot leave a stale number in the view.
   docs=the commit body of 5ec65c3 carries the audit numbers.
 
-IN-FLIGHT | row=7 | writer=session-57d15872-e49d-4c5a-92cf-640627f99728
-  | worktree=/home/administrator/projects/BlasterMaster/worktrees/dup-tripwire
-  | branch=feat/dup-tripwire | base=4541501 | dispatched_by=session-1e324382
-  | state=dispatched 2026-09-27T15:30Z, deps installed, no commit yet
-  | note=THE GENERIC DUPLICATION TRIPWIRE — the active half of row=6, and the direct answer to the
-  owner's "Code multiplications are a real vibe coding hazard and need to be actively tackled."
-  A test that parses every named function body under `src/**` (INCLUDING `*.test.ts`), normalizes
-  it (comments stripped, whitespace collapsed, every identifier blanked so a rename cannot hide a
-  copy), and requires each 2+-site population to equal a CHECKED-IN INVENTORY exactly: a new copy
-  reds NAMING EVERY SITE, and an entry whose sites drop below 2 reds as STALE until that line is
-  deleted — so a blessing cannot outlive the duplication. Direction is therefore **DELETE-ONLY**:
-  entries are removed when copies are folded, never added to bless a duplicate. It is a tripwire,
-  not a proof (it cannot see paraphrases or bodies under its stated floor), so the docstring must
-  state the floor and the measured scope, and each fold still closes with a per-idea pin. Baseline
-  inventory is EMPTY as of 4541501 (104 bodies scanned, 0 groups) — the strongest form, and the
-  cheapest moment it can ever be written. Scope is TEST-ONLY plus docs: it must not touch
-  `eslint.config.js` or non-test source. Pins: an unchanged copy reds; a RENAMED copy reds; a stale
-  inventory entry reds; the existing 67 tests / 12 files stay green. Ledger row 10.
+LANDED | row=7 | sha=b20f5a6 (writer f8eca0d + the dispatcher's amendment b20f5a6)
+  | verify=DISPATCHER'S OWN: my own `npm run gate` on the rebased tree and again on merged main →
+  exit 0 FULL GREEN, typecheck 0 · lint 0 · **72 tests / 13 files** · build 0 (logs
+  .gate-logs/gate-20260927T153848Z-3889527.log then …153907Z-3890269.log). MY OWN injections, at
+  bodies the writer never probed: a verbatim copy of `parseCellId`'s body into a new file → RED
+  naming BOTH sites (hash 89b3595e0ee17279, length 285); the same body RENAMED → RED with the
+  IDENTICAL hash (identifier blanking proved); a stale inventory entry → RED; deleting the probe →
+  GREEN. My own probes of the amended scope: clean tree GREEN; ONE legitimately added `() => 1`
+  GREEN; `FLOOR` raised to 10000 → RED; arrows reclassified as methods → RED.
+  | retired=worktree /home/administrator/projects/BlasterMaster/worktrees/dup-tripwire · branch
+  feat/dup-tripwire (`-d`, proving merged; `git worktree list` shows only the main tree)
+  | note=THE GENERIC DUPLICATION TRIPWIRE is now permanent:
+  `src/architecture/no-duplicate-implementations.test.ts` parses EVERY function-like body under
+  `src/**` (tests included — declarations, expressions, arrows, methods, constructors, accessors),
+  tokenizes it (comments dropped, every identifier blanked, literals reduced to value), hashes it,
+  and requires every 2+-site population at or above `FLOOR` 80 to equal the checked-in
+  `KNOWN_DUPLICATES` inventory EXACTLY. The inventory is EMPTY and its DIRECTION is DELETE-ONLY: a
+  new copy reds naming every site, an entry whose copies are folded reds as STALE until deleted.
+  **THE BASELINE WAS NOT ZERO — I WAS WRONG.** My row=6 scanner parsed only named `function`
+  DECLARATIONS, so it never saw a THIRD live `mulberry32` — an arrow bound to `const rng` at
+  `src/game/maps.test.ts:66` — and my "104 bodies, 0 groups" was an artifact of a narrow scanner,
+  not a fact about the repo. The writer's broader detector found it (hash 9f47349f7ade60b9,
+  `maps.test.ts:66#rng` == `lib/rng.ts#<anonymous>`) and folded it; the inventory is empty only
+  after that fold. My earlier claim that the row=6 audit had folded every copy was therefore
+  FALSE, and the owner's suspicion ("code multiplications ... need to be actively tackled") was
+  better founded than the dispatcher's own measurement. Recorded as a TRAP below.
+  DISPATCHER AMENDMENT (b20f5a6): the brief's "checked value, not prose" became an EXACT count in
+  the writer's hands, and I measured the cost — adding one legitimate `() => 1` red the tripwire
+  and told the reader to update three numbers, i.e. bless-by-ritual inside the file that exists to
+  refuse blessing. Replaced with `SCOPE_FLOOR` + `KIND_FLOOR` (per syntax form, floors set from the
+  measured histogram: declaration 114, arrow 222, method 52, constructor 4, expression 0,
+  accessor 0). My first attempt at that amendment had a bug my own probe caught: `kinds[...]` on a
+  plain object literal read `Object.prototype.constructor` and stringified the count, breaking the
+  constructor floor; it is a Map now, with the reason in a comment.
+  KNOWN LIMITS (stated in the file, recorded here): floor 80 hides a 59-char name-erasure collision
+  (`orthoNeighborIds`/`diagNeighborIds` in `board.ts`, a false positive) and a genuine 51-char
+  duplication (`TitleScene.ts` BACK-button callbacks at lines 123/184 — queued as row=9).
+  COPIES: 2→1 (the writer's line: the `maps.test.ts:66` arrow folded into `src/lib/rng.ts`).
+  docs=docs/DECISIONS.md row 10 (append-only; rows 1-8 untouched) + docs/HOW_WE_DO_IT.md, both in
+  the same commit, and both amended by me in b20f5a6 to match the new mechanism.
 
 QUEUE | row=8 | RE-CHECK THE CAMPAIGN STAR THRESHOLDS after the row=3 AI judgement change.
   `src/game/ops/campaign.ts` awards stars from `swiftMoves`/`cascadeWaves` per mission (10/2 …
@@ -158,6 +180,14 @@ QUEUE | row=8 | RE-CHECK THE CAMPAIGN STAR THRESHOLDS after the row=3 AI judgeme
   Reserved; NOT ordered. It is the honest cost of letting the owner's rule changes flow into the
   AI automatically — the AI got the new rule for free, and its calibration debt came with it.
 
+QUEUE | row=9 | FOLD THE SMALL `TitleScene.ts` DUPLICATION the tripwire can see but its floor
+  excludes: the BACK-button callback at line 123 (drawOps) and line 184 (drawSkirmish) are
+  identical 51-char normalized bodies (three statements: `playSound('ui')`, `this.view = 'root'`,
+  `this.renderPanel()`). Below the 80-char floor on purpose — chasing trivial callbacks is not
+  worth a slice — but it IS a real copy, so it is recorded rather than blessed. Extract one private
+  method and reuse it. Reserved; NOT ordered; it TOUCHES UI code, so it wants the owner's eyes on
+  the panels afterwards like any TitleScene change.
+
 QUEUE | row=4 | DEEP FIELD ships in SKIRMISH only. A campaign mission for it needs a tenth
   mission and the ops grid has the same 3x3 capacity limit. Reserved, NOT ordered.
 
@@ -167,6 +197,16 @@ LANDED | row=5 | sha=47b7742 | verify=DISPATCHER'S OWN: `git push origin HEAD:ma
   `main` is NOT a deploy trigger in this repo (deploy is the manual `deploy:sync` FTP script),
   so nothing shipped to the live site. | retired=nothing | note=owner's answer to the fork:
   "Push both landings to origin/main (Recommended)".
+
+TRAP | A DUPLICATE SCAN'S SCOPE IS THE THING MOST LIKELY TO BE WRONG — measure the scanner
+  against the HAZARD, never against itself. The row=6 audit parsed only named function
+  DECLARATIONS, so it reported "104 bodies, 0 groups" on a tree that still held a live third
+  `mulberry32` — an arrow bound to `const rng` in `src/game/maps.test.ts:66`. A scanner that finds
+  only what it looks for always agrees with itself, so "0 duplicates" was self-confirming, and the
+  dispatcher reported it to the owner as a measurement. RULE: a duplication count is evidence only
+  once the detector's scope covers every FORM the hazard can take (arrow, expression, method,
+  accessor, anonymous), which is what `src/architecture/no-duplicate-implementations.test.ts` now
+  does — and its own coverage is checked by `KIND_FLOOR`, so it cannot silently narrow again.
 
 TRAP | The eslint geometry guard is SYNTACTIC, not semantic. It errors on `.neighbors`/`.diagonals`
   member reads in non-test source, so it catches a re-derived threshold only when the copy READS
