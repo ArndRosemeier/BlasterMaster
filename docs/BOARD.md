@@ -34,13 +34,30 @@ is not a record.
 ## Records
 
 ```
-reconciled: 56729b83db6e6d079babaef117b0dc9321083c1d · 2026-09-27T16:4xZ
+reconciled: 98c630da8c446023e6d41f28663ce1110bb7a0a1 · 2026-09-27T16:5xZ
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
     (goal-ab88b5ce) created then PAUSED — never re-scoped, resumed or completed. Work is
     driven by WAKE EVENTS ONLY: an owner message, a writer's LANDED/BLOCKED report, or a
     runtime failure notice. A parked tick is not a work order and gets silence.
+
+IN-FLIGHT | row=13 | writer=session-6333ae4d-99bc-46c5-80e4-0934794da9d9
+  | worktree=/home/administrator/projects/BlasterMaster/worktrees/armored-plates
+  | branch=feat/armored-plates | base=98c630d | dispatched_by=session-1e324382
+  | state=dispatched 2026-09-27T16:5xZ, deps installed, no commit yet
+  | note=TWO-HIT PLATES — the prerequisite the owner asked to combine with the eater ("Combine
+  this with taking 2 explosions to break a wall, i think that was a good idea"). New map glyph
+  `+`; the first adjacent detonation CRACKS a plate, the second drops it (today's behaviour).
+  `=` keeps its exact 1-hit meaning so AIRLOCK/BOLTS/THE SEAM and their campaign coach text are
+  untouched, and no existing map is edited. Damage is ONE per wave even if a wave touches the
+  same plate orthogonally and by a deep diagonal. `collapseWalls` reports both outcomes, and
+  **`hashBoard` must gain the cracked set** — today it is cells + wall ids only, so a cracked
+  plate would hash identically to an intact one and the repeat guard would conflate two
+  positions. View: a visible cracked state and a hover preview that distinguishes cracks from
+  drops. One new map exercising `+` (11th card; `cardGrid` already handles >9 — the writer must
+  verify, not assume). Ledger row 11. NOT in this slice: the eater, neutral ownership, or any
+  new actor — see row=12.
 
 LANDED | row=1 | sha=ab2b552 | verify=DISPATCHER'S OWN full loop on exactly this tree:
   typecheck exit 0 · lint exit 0 · 65 tests / 12 files · build exit 0. `scripts/gate.sh` exists
@@ -242,9 +259,19 @@ QUEUE | row=12 | THE EATER AGENT — OWNER'S IDEA, design stage, NOTHING DISPATC
   DESTROY — absorbing keeps tokens conserved and gives the eater a readable counter ("6 of 8" → it
   blows next turn); destroying them is invisible and unbounded. (4) multiple eaters and their order.
   (5) the tie condition needs a precise definition ("covers the whole board" = every cell neutral?).
-  STAGING PROPOSED: slice 1 = explicit neutral owner + one eater + reveal + absorb + grow + neutral
-  spread + hash/outcome/preview on ONE new plate glyph and ONE map; slice 2 = the tie condition,
-  multiple eaters, and the "it eats HERE next" prediction ghost the player needs to plan around.
+  OWNER'S ANSWERS (2026-09-27): (1) APPETITE — "It should explode identically to deep cell rules.
+  So if it has 3 tokens and moved to a corner it explodes. Or at 8 tokens in the middle." So the
+  eater detonates when its hoard reaches `threshold(cell)` AT ITS CURRENT POSITION (the deep rule,
+  unchanged), keeps the leftover, and therefore ceases to exist when the leftover is 0 — it can
+  survive its own blast only by overeating relative to where it stands (e.g. 5 in an 8-threshold
+  cell that then steps onto a 3-threshold corner leaves 2). (2) ACTIVATION — immediately on reveal,
+  then once per round after the REVEALER, which means the game state must record who revealed it.
+  (3) COMBINE with two-hit plates: a housing that takes two detonations to crack, so releasing an
+  eater costs real tempo. That prerequisite is its own slice (row=13, IN FLIGHT above); the eater
+  is briefed off its landing.
+  STAGING: slice 1 = row=13 two-hit plates. slice 2 = explicit neutral owner + one eater + reveal +
+  absorb + grow + neutral spread + the wipe-rule fix + hash/outcome/pins + one map. slice 3 = the
+  whole-board tie, multiple eaters and the "it eats HERE next" prediction ghost.
 
 QUEUE | row=4 | DEEP FIELD ships in SKIRMISH only. A campaign mission for it needs a tenth
   mission and the ops grid has the same 3x3 capacity limit. Reserved, NOT ordered.
