@@ -14,6 +14,7 @@
     "gate": "bash scripts/gate.sh",
     "gate:compile": "GATE_TESTS=0 bash scripts/gate.sh",
     "board": "bash scripts/board.sh",
+    "publish": "bash scripts/publish.sh",
     "format": "eslint . --fix",
     "deploy:sync": "powershell -NoProfile -File ./deploy-sync.ps1"
   },
