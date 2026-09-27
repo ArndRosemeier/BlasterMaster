@@ -34,7 +34,7 @@ is not a record.
 ## Records
 
 ```
-reconciled: 29f78f6e6d462a7cf9b58d0f07e499e6bd7332db · 2026-09-27T15:28Z
+reconciled: 4541501b85d1f9f398436aed7537df898131d3c1 · 2026-09-27T15:30Z
 
 SESSION | id=session-1e324382-bce8-42e4-a70d-a3e3fe31c6dc | role=chief-of-staff | state=active
   | note=designated by the owner 2026-09-27 ("please be my chief of staff"); one frozen goal
@@ -127,19 +127,24 @@ LANDED | row=6 | sha=5ec65c3 | verify=DISPATCHER'S OWN: `npm run gate` exit 0 FU
   cuts.length`, so a future rule change cannot leave a stale number in the view.
   docs=the commit body of 5ec65c3 carries the audit numbers.
 
-QUEUE | row=7 | THE GENERIC DUPLICATION TRIPWIRE — the active half of row=6. A test that
-  parses every named function body under `src/**` (INCLUDING `*.test.ts`), normalizes it
-  (comments stripped, whitespace collapsed, the function's own and parameter names blanked so
-  a rename cannot hide a copy), and requires each 2+-site population to equal a CHECKED-IN
-  INVENTORY exactly: a new copy reds naming every site, and a FOLDED copy reds as a stale
-  entry until its line is deleted — so a blessing cannot outlive the duplication. Direction is
-  therefore DELETE-ONLY: entries are removed when copies are folded, never added to bless a
-  duplicate. It is a tripwire, not a proof (it cannot see paraphrases or bodies under its
-  measured floor), so each fold still closes with a per-idea "exactly one" pin. Baseline for
-  the inventory is ZERO as of 5ec65c3 (104 bodies scanned, 0 groups), which is the cheapest
-  moment this can ever be added. Reserved; NOT yet ordered — it is the next slice after
-  row=3, and it must be SERIALIZED behind row=3 because both land in
-  `docs/HOW_WE_DO_IT.md` and `docs/DECISIONS.md`.
+IN-FLIGHT | row=7 | writer=session-57d15872-e49d-4c5a-92cf-640627f99728
+  | worktree=/home/administrator/projects/BlasterMaster/worktrees/dup-tripwire
+  | branch=feat/dup-tripwire | base=4541501 | dispatched_by=session-1e324382
+  | state=dispatched 2026-09-27T15:30Z, deps installed, no commit yet
+  | note=THE GENERIC DUPLICATION TRIPWIRE — the active half of row=6, and the direct answer to the
+  owner's "Code multiplications are a real vibe coding hazard and need to be actively tackled."
+  A test that parses every named function body under `src/**` (INCLUDING `*.test.ts`), normalizes
+  it (comments stripped, whitespace collapsed, every identifier blanked so a rename cannot hide a
+  copy), and requires each 2+-site population to equal a CHECKED-IN INVENTORY exactly: a new copy
+  reds NAMING EVERY SITE, and an entry whose sites drop below 2 reds as STALE until that line is
+  deleted — so a blessing cannot outlive the duplication. Direction is therefore **DELETE-ONLY**:
+  entries are removed when copies are folded, never added to bless a duplicate. It is a tripwire,
+  not a proof (it cannot see paraphrases or bodies under its stated floor), so the docstring must
+  state the floor and the measured scope, and each fold still closes with a per-idea pin. Baseline
+  inventory is EMPTY as of 4541501 (104 bodies scanned, 0 groups) — the strongest form, and the
+  cheapest moment it can ever be written. Scope is TEST-ONLY plus docs: it must not touch
+  `eslint.config.js` or non-test source. Pins: an unchanged copy reds; a RENAMED copy reds; a stale
+  inventory entry reds; the existing 67 tests / 12 files stay green. Ledger row 10.
 
 QUEUE | row=4 | DEEP FIELD ships in SKIRMISH only. A campaign mission for it needs a tenth
   mission and the ops grid has the same 3x3 capacity limit. Reserved, NOT ordered.
