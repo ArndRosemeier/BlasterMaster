@@ -260,10 +260,31 @@ QUEUE | row=12 | THE EATER AGENT — OWNER'S IDEA, design stage, NOTHING DISPATC
   blows next turn); destroying them is invisible and unbounded. (4) multiple eaters and their order.
   (5) the tie condition needs a precise definition ("covers the whole board" = every cell neutral?).
   OWNER'S ANSWERS (2026-09-27): (1) APPETITE — "It should explode identically to deep cell rules.
-  So if it has 3 tokens and moved to a corner it explodes. Or at 8 tokens in the middle." So the
-  eater detonates the moment its hoard reaches `threshold(cell)` AT ITS CURRENT POSITION (the deep
-  rule, unchanged) — checked after each activation's move-and-eat, so it can cross the line by
-  overeating in a single bite (2 in an 8-threshold cell that eats a 6-stack is at 8). (2) ONE-SHOT,
+  So if it has 3 tokens and moved to a corner it explodes. Or at 8 tokens in the middle." CLARIFIED
+  by the owner: "I want eaters to explode as if the cell would be a deep cell, not at the cells
+  natural threshold, in case that was misunderstood." THE RULE, exactly: the eater's threshold is
+  ALWAYS the DEEP degree of the cell it stands on — ortho degree + diagonal degree, IGNORING whether
+  that cell is itself deep (corner 3, interior 8) — and its detonation spreads over the DEEP 8-way
+  targets. Checked after each activation's move-and-eat, so it can cross the line by overeating in
+  one bite (2 in an 8-degree cell that eats a 6-stack is at 8). Neutral cells are NOT deep: a
+  neutral pile that itself reaches a threshold spreads by the NORMAL rule.
+  THE DISPATCHER HAD THIS WRONG and it was in the record as "`threshold(cell)` AT ITS CURRENT
+  POSITION (the deep rule, unchanged)" — but the engine's `threshold()` returns the NATURAL degree
+  unless the cell is deep, so a brief written from that line would have produced a corner eater
+  detonating at 2 instead of 3. Retracted here rather than quietly edited.
+  CODE CONSEQUENCE the eater slice must carry: a PLAIN cell today carries NO diagonal information
+  at all — `createBoard` (board.ts:117) and `rewireCells` (board.ts:77) set `diagonals = []` unless
+  `deep`, and `engine.test.ts:399` pins `corner.diagonals === []`. So "as if deep" needs a data
+  change, not a lookup. RECOMMENDED: populate `diagonals` for EVERY cell and gate its USE on `deep`
+  (`threshold`/`blastTargets` consult the flag; the eater's deep degree is then just
+  neighbors+diagonals), so the eater's threshold and a deep cell's own threshold come from ONE
+  source and the anti-duplication guard stays satisfied; the restated pin becomes "a plain cell HAS
+  diagonal neighbours but does not use them". The alternative — a board-level deep-degree helper
+  that recomputes diagonal adjacency — duplicates the concept and would be a copy the tripwire
+  cannot see.
+  TACTICAL CONSEQUENCE worth keeping: because the eater walks to the biggest adjacent stack, a
+  player can LURE it onto a low-degree cell (a corner: 3) to make it detonate early, in a chosen
+  spot, rather than waiting for 8 in the middle. That is the counterplay this mechanic needs.
   owner's correction verbatim: "Oh an eater should be gone after it explodes, i thought that was
   clear but i did not state it yet." The eater is REMOVED by its own detonation — one detonation
   per eater, ever. THE DISPATCHER INFERRED OTHERWISE (survival with the leftover, "it can survive
